@@ -1,0 +1,3 @@
+.streamlit/
+.env
+pkg/__pycache__/
