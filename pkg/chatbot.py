@@ -8,9 +8,11 @@ class Chatbot:
   def __init__(self):
     load_dotenv()
     self.rabbit = rabbit_service.Rabbit()
+    self.vhost = None
     openai.api_key = os.getenv('OPENAI_API_KEY')
 
-  def chat(self, query:str) -> list:
+  def chat(self, query:str, vhost: str) -> list:
+    self.vhost = vhost
     initial_response = self.make_openai_request(query)
     
     message = initial_response['choices'][0]['message']
@@ -51,10 +53,10 @@ class Chatbot:
     return response
   
   def get_queue_messages(self, queue_name:str, limit:int=5) -> list:
-    return self.rabbit.get_queue_messages(queue_name, limit)
+    return self.rabbit.get_queue_messages(queue_name, limit, vhost=self.vhost)
 
   def get_queue_estatus(self, queue_name:str=None, without_messages:bool=False) -> list:
-    return self.rabbit.get_queue_estatus(queue_name, without_messages)
+    return self.rabbit.get_queue_estatus(queue_name, without_messages, vhost=self.vhost)
   
   FUNCTIONS = [
     {

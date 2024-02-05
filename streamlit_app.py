@@ -6,7 +6,12 @@ import pkg.chatbot as chatbot_service
 chatbot = chatbot_service.Chatbot()
 
 def chat(query):
-  return chatbot.chat(query) 
+  if query:
+    return chatbot.chat(query, vhost)
+
+with st.sidebar:
+  vhost = st.text_input('Virtual Host', key='virtual_host', type='default')
+  "O host que você quer monitorar"
 
 ## Stremalit App
 st.title('🕵️‍♀️ Alfredo`s AI')
@@ -24,6 +29,10 @@ for message in st.session_state.messages:
       st.markdown(message['content'])
 
 if prompt := st.chat_input('Olá, sou o Alfredo, sou um agente que monitora o RabbitMQ, como posso ajudá-lo?'):
+  if not vhost:
+    st.info('Por favor, informe o Virtual Host')
+    st.stop()
+
   st.session_state.messages.append({'role': 'user', 'content': prompt})
 
   with st.chat_message('user', avatar='🧑‍💻'):
