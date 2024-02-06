@@ -1,6 +1,7 @@
 import requests
 from dotenv import load_dotenv
 import os
+import base64
 
 load_dotenv()
 
@@ -62,6 +63,11 @@ class Rabbit:
       messages_data = response.json()
       for message in messages_data:
         message_body = message['payload']
+        try:
+          message_body = base64.b64decode(message_body).decode('utf-8')
+        except Exception as e:
+          print(f"Error decoding message: {e}")
+
         messages.append(message_body)
       return messages
     else:
