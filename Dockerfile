@@ -17,6 +17,10 @@ RUN git clone https://github.com/regisleandro/alfredo_ai.git .
 
 RUN pip3 install -r requirements.txt
 
+RUN useradd -u 1002 -ms /bin/bash user
+RUN chown user:user -R /app
+USER user
+
 EXPOSE 8501
 
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
