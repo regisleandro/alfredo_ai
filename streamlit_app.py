@@ -26,6 +26,8 @@ for message in st.session_state.messages:
     if isinstance(message['content'], list):
       json_data = json.dumps(message['content'], indent=2)
       st.code(json_data, language='json')
+    elif isinstance(message['content'], pd.DataFrame):
+      st.dataframe(message['content'])
     else:
       st.markdown(message['content'])
 
