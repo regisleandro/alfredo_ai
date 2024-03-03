@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import os
 import base64
 import json
+import pandas as pd
 
 load_dotenv()
 
@@ -25,7 +26,7 @@ class Rabbit:
       queue_url = f"{queue_url}/{queue_name}"
     return queue_url
 
-  def get_queue_estatus(self, queue_name: str=None, without_messages: bool = False, vhost:str = None) -> list:
+  def get_queue_estatus(self, queue_name: str=None, without_messages: bool = False, vhost:str = None) -> pd.DataFrame:
     self.vhost = vhost
     queue_url = self.get_queue_url(queue_name)
 
@@ -48,7 +49,8 @@ class Rabbit:
         if not without_messages and queue_name is None:
           print(f"Getting messages from queue: {queue_name}")
           queues = list(filter(lambda x: x['messages_count'] > 0, queues))
-      return queues
+      queues_df = pd.DataFrame(queues)
+      return queues_df
     else:
       print(f"Error: {response.status_code} - {response.text}")
       return None
@@ -67,11 +69,28 @@ class Rabbit:
         try:
           payload = json.loads(message_body)['payload']
           message_body = base64.b64decode(payload).decode('utf-8')
+          if type(message_body) == str:
+            message_body = json.loads(message_body)
+
         except Exception as e:
           print(f"Error decoding message: {e}")
 
         messages.append(message_body)
+
       return messages
     else:
       print(f"Error: {response.status_code} - {response.text}")
       return None
+
+  def summarize_queue_messages(self, queue_name: str, limit: int = 10, vhost: str = None) -> pd.DataFrame:
+    messages = self.get_queue_messages(queue_name, limit, vhost)
+    if messages is not None:
+      df = pd.DataFrame.from_dict(messages)
+      config_df = pd.Series(df['config'].values).apply(pd.Series)
+      grouped = config_df.groupby(['gpa_code', 'model', 'origin', 'tenant']).count()
+      grouped.columns = ['qtde']
+
+      return grouped
+    else:
+      return None
+    

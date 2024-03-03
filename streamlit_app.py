@@ -42,12 +42,11 @@ if prompt := st.chat_input('Olá, sou o Alfredo, sou um agente que monitora o Ra
     with st.spinner('Consultando 🔍 ...'):
       message_place_holder = st.empty()
       responses = chat(prompt)
-      print(f"typeof: {type(responses)}")
+
       if type(responses) == list:
         json_data = json.dumps(responses, indent=2)
         st.code(json_data, language='json')
       if type(responses) == pd.DataFrame:
         st.dataframe(responses)
-        
 
   st.session_state.messages.append({'role': 'assistant', 'content': responses})
