@@ -69,12 +69,13 @@ class Rabbit:
         try:
           payload = json.loads(message_body)['payload']
           message_body = base64.b64decode(payload).decode('utf-8')
-          if type(message_body) == str:
-            message_body = json.loads(message_body)
 
         except Exception as e:
           print(f"Error decoding message: {e}")
-
+        
+        if type(message_body) == str:
+          message_body = json.loads(message_body)
+        
         messages.append(message_body)
 
       return messages
@@ -84,13 +85,19 @@ class Rabbit:
 
   def summarize_queue_messages(self, queue_name: str, limit: int = 10, vhost: str = None) -> pd.DataFrame:
     messages = self.get_queue_messages(queue_name, limit, vhost)
-    if messages is not None:
-      df = pd.DataFrame.from_dict(messages)
-      config_df = pd.Series(df['config'].values).apply(pd.Series)
-      grouped = config_df.groupby(['gpa_code', 'model', 'origin', 'tenant']).count()
-      grouped.columns = ['qtde']
+    try:
+      if messages is not None:
+        df = pd.DataFrame.from_dict(messages)
 
-      return grouped
-    else:
+        config_df = pd.DataFrame.from_dict(df['config'].values.tolist())
+        config_df = config_df.astype(str)
+        grouped = config_df.groupby(['gpa_code', 'tenant', 'model', 'origin']).count()
+        grouped.columns = ['qtde']
+
+        return grouped
+      else:
+        return None
+    except Exception as e:
+      print(f"Error summarizing messages: {e}")
       return None
     
