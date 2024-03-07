@@ -64,6 +64,10 @@ class Chatbot:
     mongo = mongo_service.Mongo(database=self.vhost)
     return mongo.summarize_collections_with_error()
   
+  def summarize_pictures_by_status(self, status: str) -> pd.DataFrame:
+    mongo = mongo_service.Mongo(database=self.vhost)
+    return mongo.summarize_pictures_by_status(status= status)
+
   FUNCTIONS = [
     {
       'name': 'get_queue_messages',
@@ -124,6 +128,19 @@ class Chatbot:
     {
       'name': 'summarize_collections_with_error',
       'description': 'Summarize or get the status of the synchronization errors in Mongo',
-    },    
+    },
+    {
+      'name': 'summarize_pictures_by_status',
+      'description': 'Summarize or get status for pictures in Mongo by status',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'status': {
+            'type': 'string',
+            'description': 'The status to filter need to be "pending", "done" or "error"',
+            'default': 'pending',
+          },
+        }
+      },
+    },
   ]
-  

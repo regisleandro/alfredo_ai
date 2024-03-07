@@ -29,7 +29,7 @@ class Mongo:
     
     for collection_name in collection_names:
       pipeline = [
-        {'$match': {'has_sync_error': True}},
+        {'$match': {'has_sync_error': True, 'pending_sync': True}},
         {'$group': {'_id': {'_gpa_code': '$_gpa_code'}, 'count': {'$sum': 1}}}
       ]
 
@@ -45,12 +45,31 @@ class Mongo:
         )
     
     df = pd.DataFrame.from_dict(result)
-    print(df)
+    print(f"summarize_collections_with_error: {df}")
     return df
 
+  def summarize_pictures_by_status(self, status: str) -> pd.DataFrame:
+    db = self.client[self.database]
 
+    collection_name = 'fotos'
+    result = []    
+    pipeline = [
+      {'$match': {'status': status}},
+      {'$group': {'_id': {'_gpa_code': '$_gpa_code'}, 'count': {'$sum': 1}}}
+    ]
 
-  
+    data = db[collection_name].aggregate(pipeline)
 
-
-
+    for doc in data:
+      result.append(
+        {
+          '_gpa_code': doc['_id']['_gpa_code'],
+          'collection': collection_name,
+          'status': status,
+          'qtde': doc['count'], 
+        }
+      )
+    
+    df = pd.DataFrame.from_dict(result)
+    print(f"summarize_pictures_by_status: {df}")
+    return df
