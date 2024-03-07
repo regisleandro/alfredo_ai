@@ -4,6 +4,7 @@ import openai
 import json
 import pandas as pd
 import pkg.rabbit as rabbit_service
+import pkg.mongo as mongo_service
 
 class Chatbot:
   def __init__(self):
@@ -58,6 +59,10 @@ class Chatbot:
   
   def summarize_queue_messages(self, queue_name:str, limit:int=5) -> pd.DataFrame:
     return self.rabbit.summarize_queue_messages(queue_name, limit, vhost=self.vhost)
+  
+  def summarize_collections_with_error(self) -> pd.DataFrame:
+    mongo = mongo_service.Mongo(database=self.vhost)
+    return mongo.summarize_collections_with_error()
   
   FUNCTIONS = [
     {
@@ -115,6 +120,10 @@ class Chatbot:
           },
         }
       },
+    },
+    {
+      'name': 'summarize_collections_with_error',
+      'description': 'Summarize or get the status of the synchronization errors in Mongo',
     },    
   ]
   

@@ -9,8 +9,14 @@
 #   print(result)
 
 
-import pkg.chatbot as chatbot_service
+# import pkg.chatbot as chatbot_service
 
-chatbot = chatbot_service.Chatbot()
-query = 'liste as 20 primeiras mensagens da fila sync_mongo_to_postgres'
-print(chatbot.chat(query))
+# chatbot = chatbot_service.Chatbot()
+# query = 'liste as 20 primeiras mensagens da fila sync_mongo_to_postgres'
+# print(chatbot.chat(query))
+
+
+import pkg.mongo as mongo_service
+
+mongo = mongo_service.Mongo('aqila')
+mongo.summarize_collections_with_error()
