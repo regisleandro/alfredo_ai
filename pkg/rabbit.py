@@ -66,6 +66,7 @@ class Rabbit:
       messages_data = response.json()
       for message in messages_data:
         message_body = message['payload']
+        print(f"Message: {message_body}")
         try:
           payload = json.loads(message_body)['payload']
           message_body = base64.b64decode(payload).decode('utf-8')
@@ -74,7 +75,10 @@ class Rabbit:
           print(f"Error decoding message: {e}")
         
         if type(message_body) == str:
-          message_body = json.loads(message_body)
+          try:
+            message_body = json.loads(message_body)
+          except Exception as e:
+            print(f"Error parsing message: {e}")
         
         messages.append(message_body)
 

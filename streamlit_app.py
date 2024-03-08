@@ -11,15 +11,21 @@ def chat(query):
     return chatbot.chat(query, vhost)
 
 with st.sidebar:
-  vhost = st.text_input('Virtual Host', key='virtual_host', type='default')
-  "O host que você quer monitorar"
+  'Qual ambiente você deseja monitorar?'
+  vhost = st.text_input('Ambiente', key='ambiente', type='default')
 
 ## Stremalit App
 st.title('🕵️‍♀️ Alfredo`s AI')
 
 if 'messages' not in st.session_state:
     st.session_state.messages = []
-    st.session_state['messages'] = [{'role': 'assistant', 'content': 'Olá, como posso ajudá-lo?'}]
+    st.session_state['messages'] = [{'role': 'assistant', 'content': '''
+                            Olá, sou o Alfredo, sou um agente de monitaramento de sistemas. Como posso ajudar você?
+                            Você pode me perguntar sobre os sistemas que monitoramos, como por exemplo:
+                            - Quais são as coleções com erro?
+                            - Quantas mensagens tem nas filas?
+                            - Quais são as mensagens da fila X?
+                           '''}]
 
 for message in st.session_state.messages:
   with st.chat_message(message['role'], avatar=message['role'] == 'assistant' and '🕵️‍♀️' or '🧑‍💻'):    
@@ -31,9 +37,9 @@ for message in st.session_state.messages:
     else:
       st.markdown(message['content'])
 
-if prompt := st.chat_input('Olá, sou o Alfredo, sou um agente que monitora o RabbitMQ, como posso ajudá-lo?'):
+if prompt := st.chat_input('Como posso ajudá-lo?'):
   if not vhost:
-    st.info('Por favor, informe o Virtual Host')
+    st.info('Por favor, informe o Ambiente')
     st.stop()
 
   st.session_state.messages.append({'role': 'user', 'content': prompt})
