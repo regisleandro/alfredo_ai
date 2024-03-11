@@ -11,8 +11,10 @@ def chat(query):
     return chatbot.chat(query, vhost)
 
 with st.sidebar:
-  'Qual ambiente você deseja monitorar?'
-  vhost = st.text_input('Ambiente', key='ambiente', type='default')
+  vhost = st.selectbox(
+      'Qual ambiente você deseja monitorar?',
+      ('aqila', 'aqila-hml')
+    )
 
 ## Stremalit App
 st.title('🕵️‍♀️ Alfredo`s AI')
@@ -54,7 +56,9 @@ if prompt := st.chat_input('Como posso ajudá-lo?'):
       if type(responses) == list:
         json_data = json.dumps(responses, indent=2)
         st.code(json_data, language='json')
-      if type(responses) == pd.DataFrame:
+      elif type(responses) == pd.DataFrame:
         st.dataframe(responses)
+      else:
+        st.markdown(responses)
 
   st.session_state.messages.append({'role': 'assistant', 'content': responses})

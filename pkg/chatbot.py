@@ -51,14 +51,17 @@ class Chatbot:
     )
     return response
   
-  def get_queue_messages(self, queue_name:str, limit:int=5) -> list:
+  def get_queue_messages(self, queue_name:str, limit:int=50) -> list:
     return self.rabbit.get_queue_messages(queue_name, limit, vhost=self.vhost)
 
-  def get_queue_estatus(self, queue_name:str=None, without_messages:bool=False) -> pd.DataFrame:
-    return self.rabbit.get_queue_estatus(queue_name, without_messages, vhost=self.vhost)
+  def get_queue_status(self, queue_name:str=None, without_messages:bool=False) -> pd.DataFrame:
+    return self.rabbit.get_queue_status(queue_name, without_messages, vhost=self.vhost)
   
-  def summarize_queue_messages(self, queue_name:str, limit:int=5) -> pd.DataFrame:
+  def summarize_queue_messages(self, queue_name:str, limit:int=50) -> pd.DataFrame:
     return self.rabbit.summarize_queue_messages(queue_name, limit, vhost=self.vhost)
+  
+  def resend_to_queue(self, queue_name:str, limit:int=50) -> str:
+    return self.rabbit.resend_to_queue(queue_name, limit, vhost=self.vhost)
   
   def summarize_collections_with_error(self) -> pd.DataFrame:
     mongo = mongo_service.Mongo(database=self.vhost)
@@ -83,13 +86,31 @@ class Chatbot:
           'limit': {
             'type': 'integer',
             'description': 'The maximum number of messages to return',
-            'default': 5,
+            'default': 50,
           },
         }
       },
     },
     {
-      'name': 'get_queue_estatus',
+      'name': 'resend_to_queue',
+      'description': 'Resend/reprocess messages from a queue',
+      'parameters': {
+          'type': 'object',
+          'properties': {
+            'queue_name': {
+              'type': 'string',
+              'description': 'The name of the queue to get the reprocess of, e.g. "sync_mongo_to_postgres-error"',
+            },
+            'limit': {
+              'type': 'integer',
+              'description': 'The maximum number of messages to reprocess',
+              'default': 50,
+            },
+          }
+        },
+    },
+    {
+      'name': 'get_queue_status',
       'description': 'Get the status of a queue',
       'parameters': {
           'type': 'object',
@@ -114,13 +135,13 @@ class Chatbot:
         'properties': {
           'queue_name': {
             'type': 'string',
-            'description': 'The name of the queue to get messages from, e.g. "sync_mongo_to_postgres"',
+            'description': 'The name of the queue to summarize the messages from, e.g. "sync_mongo_to_postgres"',
             'default': None,
           },
           'limit': {
             'type': 'integer',
             'description': 'The maximum number of messages to return',
-            'default': 5,
+            'default': 50,
           },
         }
       },
