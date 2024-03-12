@@ -1,5 +1,5 @@
 
-FROM python:3.9-slim
+FROM python:latest
 
 LABEL name="alfredo-ai"
 LABEL maintener="Regis Leandro Buske - regisleandro@gmail.com"
