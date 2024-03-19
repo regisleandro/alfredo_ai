@@ -6,6 +6,8 @@ import pkg.chatbot as chatbot_service
 
 chatbot = chatbot_service.Chatbot()
 
+st.set_page_config(page_title='Alfredo', page_icon='🕵️‍♀️', initial_sidebar_state='auto')
+
 def chat(query):
   if query:
     return chatbot.chat(query, vhost)
@@ -22,11 +24,16 @@ st.title('🕵️‍♀️ Alfredo`s AI')
 if 'messages' not in st.session_state:
     st.session_state.messages = []
     st.session_state['messages'] = [{'role': 'assistant', 'content': '''
-                            Olá, sou o Alfredo, sou um agente de monitaramento de sistemas. Como posso ajudar você?
+                            Olá, sou o Alfredo, sou um agente de monitaramento de sistemas.
                             Você pode me perguntar sobre os sistemas que monitoramos, como por exemplo:
                             - Quais são as coleções com erro?
-                            - Quantas mensagens tem nas filas?
+                            - Quantas mensagens existem nas filas?
                             - Quais são as mensagens da fila X?
+                            - Quais clientes possuem fotos com erro/pendentes? 
+                            - Leia X mensagens da fila Y
+                            - Resuma X mensagens da fila Y
+                            - Reenvie X mensagens da fila Y     
+                            - Liste os commits do repositorio X filtrando por label (nome da tarefa) e status (open, closed, all)                
                            '''}]
 
 for message in st.session_state.messages:

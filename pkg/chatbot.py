@@ -5,6 +5,7 @@ import json
 import pandas as pd
 import pkg.rabbit as rabbit_service
 import pkg.mongo as mongo_service
+import pkg.github as github_service
 
 class Chatbot:
   def __init__(self):
@@ -70,6 +71,10 @@ class Chatbot:
   def summarize_pictures_by_status(self, status: str) -> pd.DataFrame:
     mongo = mongo_service.Mongo(database=self.vhost)
     return mongo.summarize_pictures_by_status(status= status)
+  
+  def search_pull_requests(self, repo_name:str='', label:str='', status:str='closed') -> list:
+    github = github_service.Github()
+    return github.search_pull_requests(repo_name, status, label)
 
   FUNCTIONS = [
     {
@@ -162,6 +167,30 @@ class Chatbot:
             'default': 'pending',
           },
         }
-      },
+      },      
+    },
+    {
+      'name': 'search_pull_requests',
+      'description': 'List the commits from pull requests in a repository',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'status': {
+            'type': 'string',
+            'description': 'The status to filter need to be "closed", "all" or "open"',
+            'default': 'closed',
+          },
+          'repo_name': {
+            'type': 'string',
+            'description': 'The name of the repository to search for pull requests, e.g. "alfredo-ai"',
+            'default': '',
+          },
+          'label': {
+            'type': 'string',
+            'description': 'The label to filter the pull requests, e.g. "bug" or "enhancement"',
+            'default': '',
+          },
+        }
+      },      
     },
   ]
