@@ -75,6 +75,10 @@ class Chatbot:
   def search_pull_requests(self, repo_name:str='', label:str='', status:str='closed') -> list:
     github = github_service.Github()
     return github.search_pull_requests(repo_name, status, label)
+  
+  def command_helper(self, question: str) -> str:
+    mongo = mongo_service.Mongo(database=self.vhost)
+    return mongo.command_helper(question)
 
   FUNCTIONS = [
     {
@@ -192,5 +196,19 @@ class Chatbot:
           },
         }
       },      
+    },
+    {
+      'name': 'command_helper',
+      'description': 'Search and retrieve information questions about the systems commands and functions',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'question': {
+            'type': 'string',
+            'description': 'The question that need to be anwsered, e.g. "wich commands are available?"',
+            'default': 'wich commands are available?',
+          },
+        }
+      },
     },
   ]
