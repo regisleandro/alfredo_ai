@@ -33,7 +33,8 @@ if 'messages' not in st.session_state:
                             - Leia X mensagens da fila Y
                             - Resuma X mensagens da fila Y
                             - Reenvie X mensagens da fila Y     
-                            - Liste os commits do repositorio X filtrando por label (nome da tarefa) e status (open, closed, all)                
+                            - Liste os commits do repositorio X filtrando por label (nome da tarefa) e status (open, closed, all)
+                            - Qual comando usar para fazer X?            
                            '''}]
 
 for message in st.session_state.messages:
