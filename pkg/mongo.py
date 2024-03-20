@@ -19,7 +19,7 @@ load_dotenv()
 
 MONGO_AQILA_URL_PRD = os.getenv('MONGO_AQILA_URL_PRD')
 MONGO_AQILA_URL_HML = os.getenv('MONGO_AQILA_URL_HML')
-MONGO_ALFREDO_URL = os.getenv('MONGO_ALFREDO_URL') 
+MONGO_DB_ALFREDO = os.getenv('MONGO_DB_ALFREDO') 
 
 class Mongo:
   def __init__(self, database: str = None):
@@ -102,9 +102,9 @@ class Mongo:
     return awnser.content
 
   def create_vector_search(self):
-    print(f"create_vector_search: {MONGO_ALFREDO_URL}")
+    print(f"create_vector_search: {MONGO_DB_ALFREDO}")
     return MongoDBAtlasVectorSearch.from_connection_string(
-      MONGO_ALFREDO_URL,
+      MONGO_DB_ALFREDO,
       'alfredo.comandos',
       OpenAIEmbeddings(),
       index_name='default',
