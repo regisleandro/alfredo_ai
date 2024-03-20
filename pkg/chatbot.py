@@ -1,6 +1,8 @@
 from dotenv import load_dotenv
 import os
-import openai
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 import json
 import pandas as pd
 import pkg.rabbit as rabbit_service
@@ -12,17 +14,17 @@ class Chatbot:
     load_dotenv()
     self.rabbit = rabbit_service.Rabbit()
     self.vhost = None
-    openai.api_key = os.getenv('OPENAI_API_KEY')
 
   def chat(self, query:str, vhost: str) -> list:
     self.vhost = vhost
     initial_response = self.make_openai_request(query)
+    message = initial_response.choices[0].message
     
-    message = initial_response['choices'][0]['message']
-    
-    if message.get('function_call'):
-      function_name = message['function_call']['name']
-      arguments = json.loads(message['function_call']['arguments'])
+    print(f"Initial response: {message}")
+
+    if message.function_call:
+      function_name = message.function_call.name
+      arguments = json.loads(message.function_call.arguments)
       
       function_response = getattr(self, function_name)(**arguments)
       return function_response
@@ -30,26 +32,22 @@ class Chatbot:
       return message
   
   def make_openai_request(self, query:str) -> dict:
-    response = openai.ChatCompletion.create(
-      model='gpt-3.5-turbo-0613',
-      messages=[{'role': 'user', 'content': query}],
-      functions=self.FUNCTIONS
-    )
+    response = client.chat.completions.create(model='gpt-3.5-turbo-0613',
+    messages=[{'role': 'user', 'content': query}],
+    functions=self.FUNCTIONS)
     return response
 
   def make_follow_up_request(self, query:str, initial_message:str, function_name:str, function_response) -> dict:
-    response = openai.ChatCompletion.create(
-      model='gpt-3.5-turbo-0613',
-      messages=[
-        {'role': 'user', 'content': query},
-        initial_message,
-        {
-          'role': 'function',
-          'name': function_name,
-          'content': function_response,
-        },
-      ],
-    )
+    response = client.chat.completions.create(model='gpt-3.5-turbo-0613',
+    messages=[
+      {'role': 'user', 'content': query},
+      initial_message,
+      {
+        'role': 'function',
+        'name': function_name,
+        'content': function_response,
+      },
+    ])
     return response
   
   def get_queue_messages(self, queue_name:str, limit:int=50) -> list:

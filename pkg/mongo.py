@@ -2,17 +2,17 @@ import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import pandas as pd
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.embeddings import OpenAIEmbeddings
+
+from langchain_openai import OpenAIEmbeddings
 from langchain.vectorstores import MongoDBAtlasVectorSearch
 
-from langchain.chat_models import ChatOpenAI
-
-from langchain.prompts.chat import (
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.prompts.chat import (
     ChatPromptTemplate,
     HumanMessagePromptTemplate,
     SystemMessagePromptTemplate,
 )
+from langchain_openai import ChatOpenAI
 
 
 load_dotenv()
@@ -95,10 +95,10 @@ class Mongo:
 
     list_documents = []
     for document in documents:
-      list_documents.append(document[0])
-
+      list_documents.append(f"{document[0].page_content} - {document[0].metadata['comandos']}")
+    print(f"command_helper - list: {list_documents}")
     awnser = self.answer_question(list_documents, query)
-    print(f"command_helper: {awnser.content}")  
+
     return awnser.content
 
   def create_vector_search(self):
@@ -111,27 +111,19 @@ class Mongo:
       text_key='descricao'
     )
 
-  def create_system_message_template(self) -> SystemMessagePromptTemplate:
-    template = """
-      Você é um assistante online que irá auxiliar em buscas em uma database.
-      Se você não souber a resposta, apenas diga que não sabe, não tente inventar uma resposta.
-      Procure sumarizar o contexto e responder a pergunta de forma clara e objetiva.
-      {context}
-      Responda em português.
-    """
-    return SystemMessagePromptTemplate.from_template(template)
-
   def answer_question(self, documents:list, question: str):
-    system_message_prompt = self.create_system_message_template()
+    model_name = 'gpt-3.5-turbo-0613'
+    chat = ChatOpenAI(model_name=model_name, temperature=0)
+    template = (
+      """
+        Você é um assistante online que irá auxiliar a encontrar comandos de código para realizar tarefas, utilizando o contexto de documentos a seguir.
+        {documents}
+        Retorne os comandos encontrados com a forma de um comando por linha. Formatado em markdown.
+        Responda em português.
+      """
+    )
+    system_message_prompt = SystemMessagePromptTemplate.from_template(template)
     human_message_prompt = HumanMessagePromptTemplate.from_template("{question}")
 
     chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
-
-    model_name = 'gpt-3.5-turbo'
-    llm = ChatOpenAI(model_name=model_name, temperature=0)
-
-    return llm(
-      chat_prompt.format_prompt(
-        context=documents, question=question
-      ).to_messages()
-    )
+    return chat.invoke(chat_prompt.format_prompt(question=question, documents=documents).to_messages())
