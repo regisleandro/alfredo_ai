@@ -120,17 +120,20 @@ class Rabbit:
     params = pika.URLParameters(url)
     connection = pika.BlockingConnection(params)
     channel = connection.channel()
+
+    channel.exchange_declare(exchange='aqila_exg', exchange_type='topic', durable=True)
+    
     routing_key = None
     match queue_name:
-      case 'sync_to_firebird':
+      case 'sync_to_postgres':
         routing_key = constants.RoutingKey.AQILA_FIREBIRD_TO_API
       case 'sync_to_mongo':
         routing_key = constants.RoutingKey.AQILA_API_TO_MONGO
       case _:
         routing_key = f"{constants.RoutingKey.AQILA_API_TO_FIREBIRD}.{queue_name}"
 
-    print(f"Sending {message} to {queue_name} in {self.vhost}")
     channel.basic_publish(exchange='aqila_exg', routing_key=routing_key, body=json.dumps(message))
+    print(f"Sending {message} to {queue_name}  - routing_key {routing_key} - in {self.vhost}")
     channel.close()
     connection.close()
     return True

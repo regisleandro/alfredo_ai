@@ -29,7 +29,7 @@ class Chatbot:
       function_response = getattr(self, function_name)(**arguments)
       return function_response
     else:
-      return message
+      return 'Olá, sou o Alfredo, sou um agente de monitaramento de sistemas, tenho um escopo limitado a funções de suporte e não consigo responder a essa pergunta.'
   
   def make_openai_request(self, query:str) -> dict:
     response = client.chat.completions.create(model='gpt-3.5-turbo-0613',
