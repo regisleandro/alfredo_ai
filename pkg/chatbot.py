@@ -197,7 +197,7 @@ class Chatbot:
     },
     {
       'name': 'command_helper',
-      'description': 'Search and retrieve information questions about the systems commands and functions',
+      'description': 'Search and retrieve information to anwser questions about the systems commands and functions',
       'parameters': {
         'type': 'object',
         'properties': {
