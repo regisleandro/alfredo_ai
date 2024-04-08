@@ -53,6 +53,8 @@ class Rabbit:
         queues.append(
           {
             'queue_name': queue['name'],
+            'consumers': queue['consumers'],
+            'state':  queue['state'],
             'messages_count':  queue['messages']
           }
         )
@@ -66,8 +68,14 @@ class Rabbit:
       print(f"Error: {response.status_code} - {response.text}")
       return None
 
-  def get_queue_messages(self, queue_name: str, limit: int = 10, vhost: str = None) -> list:
+  def get_queue_messages(self, queue_name: str, gpa_code: int = None, limit: int = 10, vhost: str = None) -> list:
     self.vhost = vhost
+    if limit is None:
+      queue_status = self.get_queue_status(queue_name, without_messages=True, vhost=vhost)
+      limit = int(queue_status['messages_count'].values[0])
+    
+    print(f"Getting {limit} messages from {queue_name} in {self.vhost} from gpa_code {gpa_code}")
+
     params = {'count': limit, 'ackmode': 'ack_requeue_true', 'encoding': 'auto'}
     queue_url = f"{self.get_queue_url(queue_name)}/get"
     response = requests.post(queue_url, auth=self.auth, json=params)
@@ -77,7 +85,7 @@ class Rabbit:
       messages_data = response.json()
       for message in messages_data:
         message_body = message['payload']
-        print(f"Message: {message_body}")
+
         try:
           payload = json.loads(message_body)['payload']
           message_body = base64.b64decode(payload).decode('utf-8')
@@ -90,8 +98,11 @@ class Rabbit:
             message_body = json.loads(message_body)
           except Exception as e:
             print(f"Error parsing message: {e}")
-        
+       
         messages.append(message_body)
+      
+      if gpa_code is not None:
+        messages = list(filter(lambda x: x.get('config', {}).get('gpa_code') == gpa_code, messages))
 
       return messages
     else:

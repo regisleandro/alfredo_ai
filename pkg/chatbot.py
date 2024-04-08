@@ -50,8 +50,8 @@ class Chatbot:
     ])
     return response
   
-  def get_queue_messages(self, queue_name:str, limit:int=50) -> list:
-    return self.rabbit.get_queue_messages(queue_name, limit, vhost=self.vhost)
+  def get_queue_messages(self, queue_name:str, gpa_code:int= None, limit:int= None) -> list:
+    return self.rabbit.get_queue_messages(queue_name, gpa_code, limit, vhost=self.vhost)
 
   def get_queue_status(self, queue_name:str=None, without_messages:bool=False) -> pd.DataFrame:
     return self.rabbit.get_queue_status(queue_name, without_messages, vhost=self.vhost)
@@ -90,10 +90,15 @@ class Chatbot:
             'description': 'The name of the queue to get messages from, e.g. "sync_mongo_to_postgres"',
             'default': None,
           },
+          'gpa_code': {
+            'type': 'integer',
+            'description': 'GPA or client code to filter the messages',
+            'default': None,
+          },
           'limit': {
             'type': 'integer',
-            'description': 'The maximum number of messages to return',
-            'default': 50,
+            'description': 'The number of messages to get from the queue, if not provided will get all messages',
+            'default': None,
           },
         }
       },
