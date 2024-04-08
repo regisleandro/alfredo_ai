@@ -102,7 +102,7 @@ class Rabbit:
         messages.append(message_body)
       
       if gpa_code is not None:
-        messages = list(filter(lambda x: x.get('config', {}).get('gpa_code') == gpa_code, messages))
+        messages = list(filter(lambda x: int(x.get('config', {}).get('gpa_code')) == int(gpa_code), messages))
       print(len(messages))
       return messages
     else:
