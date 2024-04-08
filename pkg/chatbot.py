@@ -56,7 +56,7 @@ class Chatbot:
   def get_queue_status(self, queue_name:str=None, without_messages:bool=False) -> pd.DataFrame:
     return self.rabbit.get_queue_status(queue_name, without_messages, vhost=self.vhost)
   
-  def summarize_queue_messages(self, queue_name:str, limit:int=50) -> pd.DataFrame:
+  def summarize_queue_messages(self, queue_name:str, limit:int=None) -> pd.DataFrame:
     return self.rabbit.summarize_queue_messages(queue_name, limit, vhost=self.vhost)
   
   def resend_to_queue(self, queue_name:str, limit:int=50) -> str:

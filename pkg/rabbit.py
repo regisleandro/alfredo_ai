@@ -68,7 +68,7 @@ class Rabbit:
       print(f"Error: {response.status_code} - {response.text}")
       return None
 
-  def get_queue_messages(self, queue_name: str, gpa_code: int = None, limit: int = 10, vhost: str = None) -> list:
+  def get_queue_messages(self, queue_name: str, gpa_code: int = None, limit: int = None, vhost: str = None) -> list:
     self.vhost = vhost
     if limit is None:
       queue_status = self.get_queue_status(queue_name, without_messages=True, vhost=vhost)
@@ -98,12 +98,12 @@ class Rabbit:
             message_body = json.loads(message_body)
           except Exception as e:
             print(f"Error parsing message: {e}")
-       
+        print('message_body', message_body)
         messages.append(message_body)
       
       if gpa_code is not None:
         messages = list(filter(lambda x: x.get('config', {}).get('gpa_code') == gpa_code, messages))
-
+      print(len(messages))
       return messages
     else:
       print(f"Error: {response.status_code} - {response.text}")
@@ -112,7 +112,7 @@ class Rabbit:
   def resend_to_queue(self, queue_name: str, limit: int, vhost: str = None) -> str: 
     self.vhost = vhost
     destination_queue = queue_name.split('-')[0]
-    messages = self.get_queue_messages(queue_name, limit, vhost)
+    messages = self.get_queue_messages(queue_name=queue_name, limit=limit, vhost=vhost)
     print(f"Resending {len(messages)} messages to {destination_queue}")
     try:
       if messages is not None:
@@ -149,8 +149,8 @@ class Rabbit:
     connection.close()
     return True
 
-  def summarize_queue_messages(self, queue_name: str, limit: int = 10, vhost: str = None) -> pd.DataFrame:
-    messages = self.get_queue_messages(queue_name, limit, vhost)
+  def summarize_queue_messages(self, queue_name: str, limit: int = None, vhost: str = None) -> pd.DataFrame:
+    messages = self.get_queue_messages(queue_name=queue_name, limit=limit, vhost=vhost)
     try:
       if messages is not None:
         df = pd.DataFrame.from_dict(messages)
@@ -163,6 +163,7 @@ class Rabbit:
         return grouped
       else:
         return None
+      
     except Exception as e:
       print(f"Error summarizing messages: {e}")
       return None
