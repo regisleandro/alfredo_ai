@@ -157,8 +157,7 @@ class Rabbit:
 
         config_df = pd.DataFrame.from_dict(df['config'].values.tolist())
         config_df = config_df.astype(str)
-        grouped = config_df.groupby(['gpa_code', 'tenant', 'model', 'origin']).count()
-        grouped.columns = ['qtde']
+        grouped = config_df.value_counts(['gpa_code', 'tenant', 'model', 'action',  'origin']).reset_index(name='qtd')
 
         return grouped
       else:
