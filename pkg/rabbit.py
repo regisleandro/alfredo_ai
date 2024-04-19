@@ -68,7 +68,7 @@ class Rabbit:
       print(f"Error: {response.status_code} - {response.text}")
       return None
 
-  def get_queue_messages(self, queue_name: str, gpa_code: int = None, limit: int = None, vhost: str = None) -> list:
+  def get_queue_messages(self, queue_name: str, gpa_code: int = None, collection:str = None, limit: int = None, vhost: str = None) -> list:
     self.vhost = vhost
     if limit is None:
       queue_status = self.get_queue_status(queue_name, without_messages=True, vhost=vhost)
@@ -104,6 +104,8 @@ class Rabbit:
       if gpa_code is not None:
         messages = list(filter(lambda x: int(x.get('config', {}).get('gpa_code')) == int(gpa_code), messages))
       print(len(messages))
+      if collection is not None:
+        messages = list(filter(lambda x: x.get('config', {}).get('model') == collection, messages))
       return messages
     else:
       print(f"Error: {response.status_code} - {response.text}")
