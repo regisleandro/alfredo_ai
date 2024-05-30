@@ -1,3 +1,4 @@
+fastapi
 langchain==0.1.13
 langchain-community
 langchain_core==0.1.33
