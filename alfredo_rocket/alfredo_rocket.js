@@ -43,12 +43,25 @@ const processMessages = async(err, message, messageOptions) => {
       }, 
       { headers: headers })
       .then(async res => {
-        await driver.sendToRoomId(res.data, message.rid)
+        byteLength = getByteLength(res.data);
+        if (byteLength > 4096) {
+          attachment = {
+            title: message.msg,
+            text: res.data,
+          }
+          await driver.sendToRoomId({attachments: [attachment] }, message.rid);
+        } else {
+          await driver.sendToRoomId(res.data, message.rid);
+        }
       })
       .catch(error => {
-        console.error(error)
-      })
+        console.error(error);
+      });
     }
+}
+
+const getByteLength = (str) => {
+  return Buffer.byteLength(str, 'utf8');
 }
 
 runbot()

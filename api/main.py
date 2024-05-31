@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 app = FastAPI()
 
-SIMPLE_TOKEN = s.getenv('API_TOKEN')
+SIMPLE_TOKEN = os.getenv('API_TOKEN')
 
 security = HTTPBearer()
 

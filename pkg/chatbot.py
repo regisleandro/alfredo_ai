@@ -8,6 +8,7 @@ import pandas as pd
 import pkg.rabbit as rabbit_service
 import pkg.mongo as mongo_service
 import pkg.github as github_service
+import pkg.pulpo as pulpo_service
 
 class Chatbot:
   def __init__(self):
@@ -77,6 +78,11 @@ class Chatbot:
   def command_helper(self, question: str) -> str:
     mongo = mongo_service.Mongo(database=self.vhost)
     return mongo.command_helper(question)
+  
+  def search_documents(self, search_term: str) -> str:
+    pulpo = pulpo_service.Pulpo()
+    search_result = pulpo.search_documents(search_term)
+    return f"### {search_result['title']}\n{search_result['answer']}\n[Link para os documentos]({search_result['url']})"
 
   FUNCTIONS = [
     {
@@ -219,4 +225,18 @@ class Chatbot:
         }
       },
     },
+    {
+      'name': 'search_documents',
+      'description': 'Search in the pulpo knowledge base for documents that match the search term',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'search_term': {
+            'type': 'string',
+            'description': 'The search for documents tha user need, e.g. "how to create a new user in pulpo"',
+            'default': 'find in pulpo',
+          },
+        }
+      },
+    }
   ]
