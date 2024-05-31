@@ -13,6 +13,11 @@ import logging
 import sys
 sys.path.append('../')
 
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
 from pydantic import BaseModel
 from pkg.chatbot import Chatbot
 
@@ -23,7 +28,7 @@ log = logging.getLogger(__name__)
 
 app = FastAPI()
 
-SIMPLE_TOKEN = 'iOiJIUzI1NiJ9.eyJSb2xlIjoiQWRtaW4iLCJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6'
+SIMPLE_TOKEN = s.getenv('API_TOKEN')
 
 security = HTTPBearer()
 
