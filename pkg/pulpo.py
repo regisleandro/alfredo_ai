@@ -1,11 +1,13 @@
 import requests
 import os
 import json
+import base64
 from dotenv import load_dotenv
 
 load_dotenv()
 
-BEARER = os.getenv('PULPO_BEARER')
+USER_PULPO = os.getenv('USER_PULPO')
+PASSWORD_PULPO = os.getenv('PASSWORD_PULPO')
 PULPO_SEARCH_URL = os.getenv('PULPO_SEARCH_URL')
 PULPO_URL = os.getenv('PULPO_URL')
 
@@ -13,8 +15,9 @@ class Pulpo:
 
   def search_documents(self, search_term: str) -> list:
     print(f"Searching for documents in knowledge base with term: {search_term}")
+    token = base64.b64encode(f"{USER_PULPO}:{PASSWORD_PULPO}".encode()).decode()
     headers = {
-      'authorization': f"Bearer {BEARER}",
+      'authorization': f"Basic {token}",
       'origin': PULPO_URL,
       'Content-Type': 'application/json',
     }
@@ -23,8 +26,11 @@ class Pulpo:
 
     response = requests.post(PULPO_SEARCH_URL, data=search_params, headers=headers)
 
+    print(f"response {response}")
+
     if response.status_code == 200:
       data = response.json()
+      print(f"data {data}")
       search_result = data[0]['data']['findAnswer']
 
       return {
@@ -34,7 +40,11 @@ class Pulpo:
       }
     else:
       print(f"Error: {response}")
-      return {}
+      return {
+        'answer': 'Não encontrei nada na base de conhecimento',
+        'title': 'Nada encontrado',
+        'url': ''
+      }
 
   def search_params(self, search_term: str) -> dict:    
     query = """
