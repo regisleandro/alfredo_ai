@@ -1,4 +1,4 @@
-FROM python:latest
+FROM python:3.11
 
 LABEL name="alfredo-ai"
 LABEL maintainer="Regis Leandro Buske - regisleandro@gmail.com"
