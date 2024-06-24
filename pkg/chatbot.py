@@ -88,15 +88,21 @@ class Chatbot:
     search_result = pulpo.search_documents(search_term)
 
     documents = [
-      f"[{self.strip_content(doc.get('content', ''))}]({doc['url']})\n\n"
+      f"[{self.strip_content(doc.get('content', ''))}]({doc.get('url')})\n\n"
       for doc in search_result.get('documents', [])
     ]
     
     documents = ''.join(documents)
 
-    related_questions = '\n\n'.join(search_result.get('related_questions', []))
+    related_questions = None
+    if search_result.get('related_questions'):
+      related_questions = '\n\n'.join(search_result.get('related_questions'))
+    
+    anwser = f"### {search_result['title']}\n{search_result.get('answer')}\n\n**Documentos relacionados**:\n\n{documents}"
+    if related_questions:
+      anwser += f"\n\n**Você pode perguntar sobre:**\n\n{related_questions}"
 
-    return f"### {search_result['title']}\n{search_result['answer']}\n\n##### Documentos relacionados:\n{documents}\n##### Você pode perguntar sobre:\n\n{related_questions}"
+    return anwser
   
   def strip_content(self, content: str) -> str:
     content_index = content.find('\n', 0)

@@ -32,6 +32,7 @@ class Pulpo:
     if response.status_code == 200:
       data = response.json()
       search_result = data[0]['data']['findAnswer']
+      print('search_result', search_result)
       unique_documents = defaultdict(list)
 
       for doc in search_result.get('documents', []):
@@ -40,11 +41,11 @@ class Pulpo:
       filtered_documents = [doc for doc_list in unique_documents.values() for doc in doc_list[:1]]
       transformed_documents = list(map(lambda doc: {'content': doc['content'], 'url': f"{PULPO_URL}/spaces/{doc['id']}"}, filtered_documents))
 
-      related_questions = search_result.get('relatedQuestions', [])
+      related_questions = search_result.get('relatedQuestions', None)
 
       return {
-        'answer': search_result['answer'],
-        'title': search_result['record']['parent']['title'],
+        'answer': search_result.get('answer'),
+        'title': search_result.get('record', {}).get('parent', {}).get('title'),
         'documents': transformed_documents,
         'related_questions': related_questions
       }
