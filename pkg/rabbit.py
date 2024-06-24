@@ -52,16 +52,15 @@ class Rabbit:
       for queue in queues_data:
         queues.append(
           {
-            'queue_name': queue['name'],
-            'consumers': queue['consumers'],
-            'state':  queue['state'],
-            'messages_count':  queue['messages']
+            'queue_name': queue.get('name'),
+            'consumers': queue.get('consumers'),
+            'state':  queue.get('state'),
+            'messages_count':  queue.get('messages')
           }
         )
-        print(without_messages, queue_name)
         if not without_messages and queue_name is None:
           print(f"Getting messages from queue: {queue_name}")
-          queues = list(filter(lambda x: x['messages_count'] > 0, queues))
+          queues = list(filter(lambda x: x.get('messages_count') > 0, queues))
       queues_df = pd.DataFrame(queues)
       return queues_df
     else:

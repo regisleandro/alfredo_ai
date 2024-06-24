@@ -17,20 +17,24 @@ class Chatbot:
     self.vhost = None
 
   def chat(self, query:str, vhost: str) -> list:
-    self.vhost = vhost
-    initial_response = self.make_openai_request(query)
-    message = initial_response.choices[0].message
-    
-    print(f"Initial response: {message}")
-
-    if message.function_call:
-      function_name = message.function_call.name
-      arguments = json.loads(message.function_call.arguments)
+    try:
+      self.vhost = vhost
+      initial_response = self.make_openai_request(query)
+      message = initial_response.choices[0].message
       
-      function_response = getattr(self, function_name)(**arguments)
-      return function_response
-    else:
-      return 'Olá, sou o Alfredo, sou um agente de monitaramento de sistemas, tenho um escopo limitado a funções de suporte e não consigo responder a essa pergunta.'
+      print(f"Initial response: {message}")
+
+      if message.function_call:
+        function_name = message.function_call.name
+        arguments = json.loads(message.function_call.arguments)
+        
+        function_response = getattr(self, function_name)(**arguments)
+        return function_response
+      else:
+        return 'Olá, sou o Alfredo, sou um agente de monitaramento de sistemas, tenho um escopo limitado a funções de suporte e não consigo responder a essa pergunta.'
+    except Exception as e:
+      print(f"Error: {e}")
+      return 'Perdão, mas não consegui responder a sua pergunta'
   
   def make_openai_request(self, query:str) -> dict:
     response = client.chat.completions.create(model='gpt-3.5-turbo-0613',
@@ -82,7 +86,21 @@ class Chatbot:
   def search_documents(self, search_term: str) -> str:
     pulpo = pulpo_service.Pulpo()
     search_result = pulpo.search_documents(search_term)
-    return f"### {search_result['title']}\n{search_result['answer']}\n[Link para os documentos]({search_result['url']})"
+
+    documents = [
+      f"[{self.strip_content(doc.get('content', ''))}]({doc['url']})\n\n"
+      for doc in search_result.get('documents', [])
+    ]
+    
+    documents = ''.join(documents)
+
+    related_questions = '\n\n'.join(search_result.get('related_questions', []))
+
+    return f"### {search_result['title']}\n{search_result['answer']}\n\n##### Documentos relacionados:\n{documents}\n##### Você pode perguntar sobre:\n\n{related_questions}"
+  
+  def strip_content(self, content: str) -> str:
+    content_index = content.find('\n', 0)
+    return content[:content_index].strip()
 
   FUNCTIONS = [
     {
@@ -226,17 +244,17 @@ class Chatbot:
       },
     },
     {
-      'name': 'search_documents',
-      'description': 'Search in the pulpo knowledge base for documents that match the search term',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'search_term': {
-            'type': 'string',
-            'description': 'The search for documents tha user need, e.g. "how to create a new user in pulpo"',
-            'default': 'find in pulpo',
-          },
-        }
-      },
+      "name": "search_documents",
+      "description": "Search in the Pulpo knowledge base for documents that match the provided search term.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "search_term": {
+            "type": "string",
+            "description": "The term or phrase to search for in the Pulpo knowledge base, e.g., 'how to create a new user in Pulpo'."
+          }
+        },
+        "required": ["search_term"]
+      }
     }
   ]

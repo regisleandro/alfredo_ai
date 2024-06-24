@@ -2,6 +2,7 @@ import requests
 import os
 import json
 import base64
+from collections import defaultdict
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -30,20 +31,30 @@ class Pulpo:
 
     if response.status_code == 200:
       data = response.json()
-      print(f"data {data}")
       search_result = data[0]['data']['findAnswer']
+      unique_documents = defaultdict(list)
+
+      for doc in search_result.get('documents', []):
+        unique_documents[doc['id']].append(doc)
+
+      filtered_documents = [doc for doc_list in unique_documents.values() for doc in doc_list[:1]]
+      transformed_documents = list(map(lambda doc: {'content': doc['content'], 'url': f"{PULPO_URL}/spaces/{doc['id']}"}, filtered_documents))
+
+      related_questions = search_result.get('relatedQuestions', [])
 
       return {
         'answer': search_result['answer'],
         'title': search_result['record']['parent']['title'],
-        'url': f"{PULPO_URL}/{search_result['record']['parent']['slug']}"
+        'documents': transformed_documents,
+        'related_questions': related_questions
       }
     else:
       print(f"Error: {response}")
       return {
         'answer': 'Não encontrei nada na base de conhecimento',
         'title': 'Nada encontrado',
-        'url': ''
+        'docs': '',
+        'related_questions': []
       }
 
   def search_params(self, search_term: str) -> dict:    
