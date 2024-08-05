@@ -113,6 +113,38 @@ class Chatbot:
 
     return anwser
   
+  def task_analist(self, task_description: str) -> str:
+    prompt = f"""
+      You are a software analyst and you need to create a task for the development team. 
+      The task is to {task_description}. 
+      Write a task in BDD format that describes the steps to be taken to complete the task.
+      Always create 3 scenarios, one for the success case, one for the failure case and one for the edge case.
+      Return in markdown format, use the following template:
+        
+        ```markdown
+        Feature: [Feature name]
+          As a [role]
+          I want [feature]
+          So that [benefit]
+          
+          **Cenário: [Scenario name]**
+            **Dado que** [initial context]
+            **Quando** [event]
+            **Então** [outcome]
+        ```
+      Return in portuguese.
+    """
+
+    response = client.chat.completions.create(
+        model='gpt-3.5-turbo',
+        messages=[{'role': 'user', 'content': prompt}],
+        max_tokens=500
+    )
+
+    print (response)
+
+    return response.choices[0].message.content
+  
   def strip_content(self, content: str) -> str:
     content_index = content.find('\n', 0)
     return content[:content_index].strip()
@@ -271,5 +303,19 @@ class Chatbot:
         },
         "required": ["search_term"]
       }
-    }
+    },
+    {
+      'name': 'task_analist',
+      'description': 'Create tasks for developers, analysing the request and creating a task in BDD format',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'task_description': {
+            'type': 'string',
+            'description': 'The description of the task to be created, e.g. "describe a task to create a new user in the system"',
+            'default': 'describe a task to create a new user in the system',
+          },
+        }
+      },
+    },    
   ]
