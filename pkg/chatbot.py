@@ -115,24 +115,26 @@ class Chatbot:
   
   def task_analist(self, task_description: str) -> str:
     prompt = f"""
-      You are a software analyst and you need to create a task for the development team. 
-      The task is to {task_description}. 
+      You are a software/quality analyst and you need to create a task for the development team.
+      The task is to {task_description}.
       Write a task in BDD format that describes the steps to be taken to complete the task.
-      Always create 3 scenarios, one for the success case, one for the failure case and one for the edge case.
-      Return in markdown format, use the following template:
-        
-        ```markdown
-        Feature: [Feature name]
-          As a [role]
-          I want [feature]
-          So that [benefit]
-          
-          **Cenário: [Scenario name]**
-            **Dado que** [initial context]
-            **Quando** [event]
-            **Então** [outcome]
-        ```
-      Return in portuguese.
+      Always create 3 scenarios: one for the success case, one for the failure case, and one for the edge case.
+      Structure the task as follows, using markdown format:
+
+      **Feature**: [Nome da funcionalidade]
+
+      **Como um** [papel]  
+      **Eu quero** [funcionalidade]  
+      **Para então** [benefício]
+
+      **Cenário: [Nome do cenário]**  
+      **Dado que** [contexto inicial]  
+      **Quando** [evento]  
+      **Então** [resultado]
+
+      **Pontos de dúvida**: [risco ou dúvida que precisa ser validada]
+
+      Translated to Portuguese.
     """
 
     response = client.chat.completions.create(
@@ -140,8 +142,6 @@ class Chatbot:
         messages=[{'role': 'user', 'content': prompt}],
         max_tokens=500
     )
-
-    print (response)
 
     return response.choices[0].message.content
   
