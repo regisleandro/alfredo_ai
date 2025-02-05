@@ -18,6 +18,7 @@ import pkg.rabbit as rabbit_service
 import pkg.mongo as mongo_service
 import pkg.github as github_service
 import pkg.pulpo as pulpo_service
+import pkg.trello as trello_service
 
 class Chatbot:
   def __init__(self):
@@ -113,7 +114,31 @@ class Chatbot:
 
     return anwser
   
-  def task_analist(self, task_description: str) -> str:
+  def task_analyst(self, task_id: int, query: str) -> str:
+    trello = trello_service.Trello()
+    task = trello.call_trello_tasks(task_id)
+    task_description = task.get('description', 'not found')
+    prompt = f"""
+      You are a tech leader and you need to help the development team, answering questions about the task.
+      **Task** {task.get('name', 'not found')}.
+      **Description** {task_description}
+      **Question** {query}
+      
+      Answer objectively and clearly. If you don't know the answer, ask for more information succinctly.
+    
+      Translate to Portuguese.
+    """
+
+    response = client.chat.completions.create(
+        model='gpt-3.5-turbo',
+        messages=[{'role': 'user', 'content': prompt}],
+        max_tokens=500
+    )
+
+    return response.choices[0].message.content
+
+  
+  def task_manager_analyst(self, task_description: str) -> str:
     prompt = f"""
       You are a software/quality analyst and you need to create a task for the development team.
       The task is to {task_description}.
@@ -134,7 +159,7 @@ class Chatbot:
 
       **Pontos de dúvida**: [risco ou dúvida que precisa ser validada]
 
-      Translated to Portuguese.
+      Translate to Portuguese.
     """
 
     response = client.chat.completions.create(
@@ -178,24 +203,6 @@ class Chatbot:
           },
         }
       },
-    },
-    {
-      'name': 'resend_to_queue',
-      'description': 'Resend/reprocess messages from a queue',
-      'parameters': {
-          'type': 'object',
-          'properties': {
-            'queue_name': {
-              'type': 'string',
-              'description': 'The name of the queue to get the reprocess of, e.g. "sync_mongo_to_postgres-error"',
-            },
-            'limit': {
-              'type': 'integer',
-              'description': 'The maximum number of messages to reprocess',
-              'default': 50,
-            },
-          }
-        },
     },
     {
       'name': 'get_queue_status',
@@ -291,21 +298,40 @@ class Chatbot:
       },
     },
     {
-      "name": "search_documents",
-      "description": "Search in the Pulpo knowledge base for documents that match the provided search term.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "search_term": {
-            "type": "string",
-            "description": "The term or phrase to search for in the Pulpo knowledge base, e.g., 'how to create a new user in Pulpo'."
+      'name': 'search_documents',
+      'description': 'Search in the Pulpo knowledge base for documents that match the provided search term.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'search_term': {
+            'type': 'string',
+            'description': "The term or phrase to search for in the Pulpo knowledge base, e.g., 'how to create a new user in Pulpo'."
           }
         },
-        "required": ["search_term"]
+        'required': ['search_term']
       }
     },
     {
-      'name': 'task_analist',
+      'name': 'task_analyst',
+      'description': 'Answer queries about a task, using the task description as context - extract the task id and the query from the text',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'query': {
+            'type': 'string',
+            'description': "The question about the task, e.g. 'what is the task 123 about?' or 'about this task 123, what I need to do?'",
+          },
+          'task_id': {
+            'type': 'integer',
+            'description': 'The id of the task to get the information, e.g. 1234',
+            "pattern": "\\b\\d{3,6}\\b"
+          },          
+        },
+      'required': ['task_id', 'query'],
+      },
+    },
+    {
+      'name': 'task_manager_analyst',
       'description': 'Create tasks for developers, analysing the request and creating a task in BDD format',
       'parameters': {
         'type': 'object',
@@ -317,5 +343,5 @@ class Chatbot:
           },
         }
       },
-    },    
+    },        
   ]

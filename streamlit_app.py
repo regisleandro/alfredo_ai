@@ -32,10 +32,10 @@ if 'messages' not in st.session_state:
                             - Quais clientes possuem fotos com erro/pendentes? 
                             - Leia X mensagens da fila Y
                             - Leia X mensagens da fila Y filtrando pelo cliente Z
-                            - Resuma X mensagens da fila Y
-                            - Reenvie X mensagens da fila Y     
+                            - Resuma X mensagens da fila Y   
                             - Liste os commits do repositorio X filtrando por label (nome da tarefa) e status (open, closed, all)
-                            - Qual comando usar para fazer X?            
+                            - Qual comando usar para fazer X?
+                            - Sobre a tarefa 123, quais os principais detalhes?         
                            '''}]
 
 for message in st.session_state.messages:
