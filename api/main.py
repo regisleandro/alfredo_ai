@@ -18,7 +18,7 @@ import os
 
 load_dotenv()
 
-from pydantic.v1 import BaseModel
+from pydantic import BaseModel
 from pkg.chatbot import Chatbot
 
 import json
