@@ -6,9 +6,6 @@ import json
 
 load_dotenv()
 
-os.environ.pop('HTTP_PROXY', None)
-os.environ.pop('HTTPS_PROXY', None)
-
 client =  AzureOpenAI(
   api_version=os.getenv('AZURE_AP_VERSION'),
   api_key=os.getenv('AZURE_OPENAI_API_KEY'),
