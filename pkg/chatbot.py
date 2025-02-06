@@ -115,9 +115,9 @@ class Chatbot:
 
     return anwser
   
-  def task_analyst(self, task_id: int, query: str) -> str:
+  def task_analyst(self, task_id: int, query: str, board_name: str='inovacao') -> str:
     trello = trello_service.Trello()
-    task = trello.call_trello_tasks(task_id)
+    task = trello.call_trello_tasks(task_id, board_name)
     task_description = task.get('description', 'not found')
     comments = ""
     for comment in task.get('comments', []):
@@ -127,29 +127,29 @@ class Chatbot:
       comments += f"**comment** {text} by member **{user}** in **{date}** |"
 
     prompt = f"""
-      You are an experienced tech leader assisting a development team with a specific task. 
-      Your role is to provide clear, objective, and helpful answers to their questions while using the provided context about the task.
+      You are an experienced tech leader assisting a development team with a specific task.  
+      Your goal is to provide **clear, objective, and well-founded answers** based strictly on the provided context.  
 
-      **Context Provided:**
-      - **Task Name:** {task.get('name', 'not found')}
-      - **Task Goal:** {task_description}
-      - **Task Comments:** {comments}
+      ---  
+      ### Context:  
+      Name: {task.get('name', 'Not available')}  
+      Description: {task_description}  
+      Comments: {comments}  
+      ---  
 
-      **Question to Answer:** {query}
+      ### Question:  
+      {query}  
+      ---  
 
-      Instructions:
-      1. Use the context (Task Name, Task Goal, and Task Comments) to answer the question as accurately as possible.
-      2. If you don't have enough information to answer the question, ask for clarification in a concise and specific manner.
-      3. If asked for a summary, provide a brief overview of the task, including:
-        - Task Name
-        - Task Goal
-        - Task Comments
-        - Date formated and User (if available)
-      4. Always translate your response into Portuguese.
-      5. Maintain a professional and friendly tone throughout your response.
+      ### Instructions:  
+      - **Use all sections of the provided context**, including the Comments, to formulate a precise answer.  
+      - **Do not omit insights from the Task Comments**; incorporate them naturally into your response.  
+      - **If the information is insufficient, ask for clarification concisely.**  
+      - **Always provide the answer in Portuguese.**  
 
-      Let's begin!
+      Now, provide your response.
     """
+
 
     response = client.chat.completions.create(
         model='o1-mini-2024-09-12',
@@ -338,18 +338,22 @@ class Chatbot:
     },
     {
       'name': 'task_analyst',
-      'description': 'Answer queries about a task, using the task description as context - extract the task id and the query from the text',
+      'description': 'Extracts the task ID, board name, and user`s query about the task from a given text.',
       'parameters': {
         'type': 'object',
         'properties': {
           'query': {
             'type': 'string',
-            'description': "The question about the task, e.g. 'what is the task 123 about?' or 'about this task 123, what I need to do?'",
+            'description': 'The user`s question about the task, excluding task ID and board name. Example: "quais os comentários da tarefa?" instead of "quais os comentários da tarefa 2256 do time sparta?".'
+          },
+          'board_name': {
+            'type': 'string',
+            'description': "The development team or board name to get the task information, e.g. 'inovacao'",
+            'default': 'inovacao',
           },
           'task_id': {
             'type': 'integer',
-            'description': 'The id of the task to get the information, e.g. 1234',
-            "pattern": "\\b\\d{3,6}\\b"
+            'description': 'The numeric ID of the task, extracted from the input text. Example: 2256 if the question is "quais os comentários da tarefa 2256 do time sparta?".'
           },          
         },
       'required': ['task_id', 'query'],
