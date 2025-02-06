@@ -41,19 +41,20 @@ class Chatbot:
         function_response = getattr(self, function_name)(**arguments)
         return function_response
       else:
-        return 'Olá, sou o Alfredo, sou um agente de monitaramento de sistemas, tenho um escopo limitado a funções de suporte e não consigo responder a essa pergunta.'
+
+        return message.content
     except Exception as e:
       print(f"Error: {e}")
       return 'Perdão, mas não consegui responder a sua pergunta'
   
   def make_openai_request(self, query:str) -> dict:
-    response = client.chat.completions.create(model='gpt-3.5-turbo-0613',
+    response = client.chat.completions.create(model='o1-mini-2024-09-12',
     messages=[{'role': 'user', 'content': query}],
     functions=self.FUNCTIONS)
     return response
 
   def make_follow_up_request(self, query:str, initial_message:str, function_name:str, function_response) -> dict:
-    response = client.chat.completions.create(model='gpt-3.5-turbo-0613',
+    response = client.chat.completions.create(model='o1-mini-2024-09-12',
     messages=[
       {'role': 'user', 'content': query},
       initial_message,
@@ -118,52 +119,76 @@ class Chatbot:
     trello = trello_service.Trello()
     task = trello.call_trello_tasks(task_id)
     task_description = task.get('description', 'not found')
+    comments = ""
+    for comment in task.get('comments', []):
+      user = comment.get('user', '')
+      date = comment.get('comment_date')
+      text = comment.get('comment', '')
+      comments += f"**comment** {text} by member **{user}** in **{date}** |"
+
     prompt = f"""
-      You are a tech leader and you need to help the development team, answering questions about the task.
-      **Task** {task.get('name', 'not found')}.
-      **Description** {task_description}
-      **Question** {query}
-      
-      Answer objectively and clearly. If you don't know the answer, ask for more information succinctly.
-    
-      Translate to Portuguese.
+      You are an experienced tech leader assisting a development team with a specific task. 
+      Your role is to provide clear, objective, and helpful answers to their questions while using the provided context about the task.
+
+      **Context Provided:**
+      - **Task Name:** {task.get('name', 'not found')}
+      - **Task Goal:** {task_description}
+      - **Task Comments:** {comments}
+
+      **Question to Answer:** {query}
+
+      Instructions:
+      1. Use the context (Task Name, Task Goal, and Task Comments) to answer the question as accurately as possible.
+      2. If you don't have enough information to answer the question, ask for clarification in a concise and specific manner.
+      3. If asked for a summary, provide a brief overview of the task, including:
+        - Task Name
+        - Task Goal
+        - Task Comments
+        - Date formated and User (if available)
+      4. Always translate your response into Portuguese.
+      5. Maintain a professional and friendly tone throughout your response.
+
+      Let's begin!
     """
 
     response = client.chat.completions.create(
-        model='gpt-3.5-turbo',
+        model='o1-mini-2024-09-12',
         messages=[{'role': 'user', 'content': prompt}],
         max_tokens=500
     )
 
     return response.choices[0].message.content
 
-  
   def task_manager_analyst(self, task_description: str) -> str:
     prompt = f"""
-      You are a software/quality analyst and you need to create a task for the development team.
-      The task is to {task_description}.
-      Write a task in BDD format that describes the steps to be taken to complete the task.
-      Always create 3 scenarios: one for the success case, one for the failure case, and one for the edge case.
-      Structure the task as follows, using markdown format:
+      You are a software/quality analyst responsible for creating a task in BDD (Behavior-Driven Development) format for the development team. The task description is: **{task_description}**.
 
-      **Feature**: [Nome da funcionalidade]
+      Your goal is to write a clear and structured task in BDD format, following these guidelines:
 
-      **Como um** [papel]  
-      **Eu quero** [funcionalidade]  
-      **Para então** [benefício]
+      1. **Task Structure**: Use the provided markdown format to structure the task:
+        - **Feature**: [Feature Name]
+        - **As a** [Role/User]  
+        - **I want** [Functionality]  
+        - **So that** [Benefit/Value]
+        - **Scenario**: [Scenario Name]  
+          - **Given** [Initial Context]  
+          - **When** [Event/Action]  
+          - **Then** [Expected Outcome]
 
-      **Cenário: [Nome do cenário]**  
-      **Dado que** [contexto inicial]  
-      **Quando** [evento]  
-      **Então** [resultado]
+      2. **Scenarios**: Always include three scenarios:
+        - One for the **success case** (when everything works as expected).
+        - One for the **failure case** (when something goes wrong or an error occurs).
+        - One for the **edge case** (an unusual or extreme situation).
 
-      **Pontos de dúvida**: [risco ou dúvida que precisa ser validada]
+      3. **Doubts/Risks**: Include a section called **Pontos de dúvida** (Points of Doubt) to highlight any risks, uncertainties, or questions that need clarification before implementation.
 
-      Translate to Portuguese.
+      4. **Translation**: always translate it into Portuguese.
+
+      Let’s proceed step by step:
     """
 
     response = client.chat.completions.create(
-        model='gpt-3.5-turbo',
+        model='o1-mini-2024-09-12',
         messages=[{'role': 'user', 'content': prompt}],
         max_tokens=500
     )
