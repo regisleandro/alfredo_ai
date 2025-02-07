@@ -12,6 +12,8 @@ client =  AzureOpenAI(
   azure_deployment=os.getenv('AZURE_DEPLOYMENT_ID')
 )
 
+MODEL = 'gpt-4o-2024-11-20'
+
 # import json
 import pandas as pd
 import pkg.rabbit as rabbit_service
@@ -48,22 +50,22 @@ class Chatbot:
       return 'Perdão, mas não consegui responder a sua pergunta'
   
   def make_openai_request(self, query:str) -> dict:
-    response = client.chat.completions.create(model='o1-mini-2024-09-12',
+    response = client.chat.completions.create(model=MODEL,
     messages=[{'role': 'user', 'content': query}],
     functions=self.FUNCTIONS)
     return response
 
   def make_follow_up_request(self, query:str, initial_message:str, function_name:str, function_response) -> dict:
-    response = client.chat.completions.create(model='o1-mini-2024-09-12',
-    messages=[
-      {'role': 'user', 'content': query},
-      initial_message,
-      {
-        'role': 'function',
-        'name': function_name,
-        'content': function_response,
-      },
-    ])
+    response = client.chat.completions.create(model=MODEL,
+      messages=[
+        {'role': 'user', 'content': query},
+        initial_message,
+        {
+          'role': 'function',
+          'name': function_name,
+          'content': function_response,
+        },
+      ])
     return response
   
   def get_queue_messages(self, queue_name:str, gpa_code:int= None, collection:str= None, limit:int= None) -> list:
@@ -152,7 +154,7 @@ class Chatbot:
 
 
     response = client.chat.completions.create(
-        model='o1-mini-2024-09-12',
+        model=MODEL,
         messages=[{'role': 'user', 'content': prompt}],
         max_tokens=500
     )
@@ -188,7 +190,7 @@ class Chatbot:
     """
 
     response = client.chat.completions.create(
-        model='o1-mini-2024-09-12',
+        model=MODEL,
         messages=[{'role': 'user', 'content': prompt}],
         max_tokens=500
     )
@@ -309,20 +311,6 @@ class Chatbot:
       },      
     },
     {
-      'name': 'command_helper',
-      'description': 'Search and retrieve information to anwser questions about the systems commands and functions',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'question': {
-            'type': 'string',
-            'description': 'The question that need to be anwsered, e.g. "wich commands are available?"',
-            'default': 'wich commands are available?',
-          },
-        }
-      },
-    },
-    {
       'name': 'search_documents',
       'description': 'Search in the Pulpo knowledge base for documents that match the provided search term.',
       'parameters': {
@@ -344,7 +332,7 @@ class Chatbot:
         'properties': {
           'query': {
             'type': 'string',
-            'description': 'The user`s question about the task, excluding task ID and board name. Example: "quais os comentários da tarefa?" instead of "quais os comentários da tarefa 2256 do time sparta?".'
+            'description': 'The user`s question about the task, excluding task ID and board name. Example: "quais os comentários da tarefa?" instead of "quais os comentários da tarefa 2256 do time inovacao?".'
           },
           'board_name': {
             'type': 'string',
@@ -353,7 +341,7 @@ class Chatbot:
           },
           'task_id': {
             'type': 'integer',
-            'description': 'The numeric ID of the task, extracted from the input text. Example: 2256 if the question is "quais os comentários da tarefa 2256 do time sparta?".'
+            'description': 'The numeric ID of the task, extracted from the input text. Example: 2256 if the question is "quais os comentários da tarefa 2256 do time inovacao?".'
           },          
         },
       'required': ['task_id', 'query'],
