@@ -139,9 +139,6 @@ def format_markdown_to_google_chat_card(markdown_text):
   card = {
     "cards": [
       {
-        "header": {
-          "title": "Informações"
-        },
         "sections": [
           {
             "widgets": widgets
