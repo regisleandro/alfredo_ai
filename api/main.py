@@ -74,26 +74,14 @@ async def chat(chat_request: ChatRequest = Body(...)):
 def translate_response(response):
   if isinstance(response, list):
     return {
-      "cards": [
-        {
-          "sections": [
-            {
-              "widgets": [
-                {
-                  "textParagraph": {
-                    "text": f"```\n{json.dumps(response, indent=2)}\n```"
-                  }
-                }
-              ]
-            }
-          ]
-        }
-      ]
+      "text": f"```\n{json.dumps(response, indent=2)}\n```"
     }
   if isinstance(response, pd.DataFrame):
     return dataframe_to_markdown_list(response)
   else:
-    return format_markdown_to_google_chat_card(response)
+    return {
+      "text": response
+    }
 
 def dataframe_to_markdown_list(df):
   markdown_list = ""
