@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 app = FastAPI()
 
-SIMPLE_TOKEN = 'iOiJIUzI1NiJ9.eyJSb2xlIjoiQWRtaW4iLCJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6' #os.getenv('API_TOKEN')
+SIMPLE_TOKEN = os.getenv('API_TOKEN')
 
 security = HTTPBearer()
 
@@ -68,11 +68,10 @@ class ChatRequest(BaseModel):
 async def chat(request: Request):
     data = await request.json()
     query = data.get("query")
-    vhost = data.get("vhost", "default")
-    user_id = data.get("user_id", "default")  # Get user_id from request, default if not provided
-    
-    chatbot = Chatbot()
-    response = chatbot.chat(query=query, vhost=vhost, user_id=user_id)
+    user_id = data.get("user_id", "default")  
+
+    chatbot = app.state.chatbot
+    response = chatbot.chat(query=query, vhost='aqila', user_id=user_id)
     
     return {"response": response}
 
@@ -80,9 +79,9 @@ async def chat(request: Request):
 async def task_manager_analyst(request: Request):
     data = await request.json()
     task_description = data.get("task_description")
-    user_id = data.get("user_id", "default")  # Get user_id from request
+    user_id = data.get("user_id", "default") 
     
-    chatbot = Chatbot()
+    chatbot = app.state.chatbot
     response = chatbot.task_manager_analyst(task_description=task_description, user_id=user_id)
     
     return {"response": response}
@@ -93,9 +92,9 @@ async def task_analyst(request: Request):
     task_id = data.get("task_id")
     query = data.get("query")
     board_name = data.get("board_name", "inovacao")
-    user_id = data.get("user_id", "default")  # Get user_id from request
+    user_id = data.get("user_id", "default") 
     
-    chatbot = Chatbot()
+    chatbot = app.state.chatbot
     # Update task_analyst method in chatbot.py to accept user_id
     response = chatbot.task_analyst(task_id=task_id, query=query, board_name=board_name)
     
