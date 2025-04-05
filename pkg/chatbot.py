@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import os
 from openai import AzureOpenAI
+import tiktoken
 
 import json
 
@@ -27,48 +28,162 @@ class Chatbot:
     load_dotenv()
     self.rabbit = rabbit_service.Rabbit()
     self.vhost = None
+    self.user_chat_histories = {}  # Dictionary to store chat histories by user ID
 
-  def chat(self, query:str, vhost: str) -> list:
+  def chat(self, query:str, vhost: str, user_id: str = "default") -> list:
     try:
       self.vhost = vhost
-      initial_response = self.make_openai_request(query)
+      
+      # Initialize chat history for this user if it doesn't exist
+      if user_id not in self.user_chat_histories:
+        self.user_chat_histories[user_id] = []
+      
+      # Get the user's chat history
+      chat_history = self.user_chat_histories[user_id]
+      
+      # Check if we'll exceed the limit with this new message
+      history_limit_warning = None
+      if len(chat_history) >= 10:
+        history_limit_warning = "⚠️ Você atingiu o limite de conversas sobre este tópico. Uma nova conversa está começando. Os dados das interações anteriores não estarão disponíveis."
+        # Clear the chat history since we're starting fresh
+        chat_history = []
+        self.user_chat_histories[user_id] = chat_history
+      
+      # Add user message to chat history
+      chat_history.append({'role': 'user', 'content': query})
+      
+      # Keep only the last 5 conversations (10 messages total)
+      if len(chat_history) > 10:
+        chat_history = chat_history[-10:]
+        self.user_chat_histories[user_id] = chat_history
+      
+      initial_response = self.make_openai_request(query, user_id)
       message = initial_response.choices[0].message
+
+      print(f"chat_history: {chat_history}")
       
       print(f"Initial response: {message}")
 
+      # Add assistant's response to chat history
+      if message.content:
+        chat_history.append({'role': 'assistant', 'content': message.content})
+      
       if message.function_call:
         function_name = message.function_call.name
         arguments = json.loads(message.function_call.arguments)
         
+        # Add function call to chat history
+        chat_history.append({
+          'role': 'assistant', 
+          'content': None,
+          'function_call': {
+            'name': function_name,
+            'arguments': message.function_call.arguments
+          }
+        })
+        
         function_response = getattr(self, function_name)(**arguments)
+        
+        # Add function response to chat history
+        chat_history.append({
+          'role': 'function',
+          'name': function_name,
+          'content': str(function_response)
+        })
+        
+        # Keep only the last 5 conversations
+        if len(chat_history) > 10:
+          chat_history = chat_history[-10:]
+          self.user_chat_histories[user_id] = chat_history
+          
+        # If we had a history limit warning, prepend it to the response
+        if history_limit_warning:
+          if isinstance(function_response, str):
+            return history_limit_warning + "\n\n" + function_response
+          else:
+            # For non-string responses (like DataFrames or lists), we can't easily prepend the warning
+            # So we'll just return the function response as is
+            return function_response
+        
         return function_response
-      else:
-
-        return message.content
+      
+      # If we had a history limit warning, prepend it to the response
+      if history_limit_warning:
+        return history_limit_warning + "\n\n" + message.content
+      
+      return message.content
     except Exception as e:
       print(f"Error: {e}")
       return 'Perdão, mas não consegui responder a sua pergunta'
-  
-  def make_openai_request(self, query:str) -> dict:
-    response = client.chat.completions.create(model=MODEL,
-    messages=[{'role': 'user', 'content': query}],
-    functions=self.FUNCTIONS)
+    
+  def ensure_context_size(self, messages, token_limit):
+    # Use a supported encoding
+    tokenizer = tiktoken.get_encoding("cl100k_base")  # Use a known supported encoding
+
+    # Calculate the total number of tokens in the messages
+    total_tokens = sum(len(tokenizer.encode(message['content'])) for message in messages if message['content'])
+
+    # Check if the total tokens exceed the limit
+    if total_tokens > token_limit:
+      raise ValueError("The context size exceeds the model's token limit.")
+
+    return messages
+
+  def make_openai_request(self, query: str, user_id: str = "default") -> dict:
+    # Get the user's chat history or use an empty list if not found
+    chat_history = self.user_chat_histories.get(user_id, [])
+    
+    # If chat history is empty, use just the current query
+    messages = chat_history if chat_history else [{'role': 'user', 'content': query}]
+    
+    # Validate context size and raise an error if it exceeds the limit
+    token_limit = 8000  # Conservative token limit for GPT-4o
+    self.ensure_context_size(messages, token_limit)
+    
+    response = client.chat.completions.create(
+      model=MODEL,
+      messages=messages,
+      functions=self.FUNCTIONS
+    )
     return response
 
-  def make_follow_up_request(self, query:str, initial_message:str, function_name:str, function_response) -> dict:
-    response = client.chat.completions.create(model=MODEL,
-      messages=[
+  def make_follow_up_request(self, query:str, initial_message:str, function_name:str, function_response, user_id:str = "default") -> dict:
+    # Get the user's chat history
+    chat_history = self.user_chat_histories.get(user_id, [])
+    
+    # Create a temporary messages list that includes the chat history plus the function response
+    messages = chat_history.copy()
+    
+    # If chat history is empty, add the initial query and response
+    if not messages:
+      messages = [
         {'role': 'user', 'content': query},
-        initial_message,
-        {
-          'role': 'function',
-          'name': function_name,
-          'content': function_response,
-        },
-      ])
+        initial_message
+      ]
+    
+    # Add the function response if not already in history
+    if not messages or messages[-1].get('role') != 'function' or messages[-1].get('name') != function_name:
+      messages.append({
+        'role': 'function',
+        'name': function_name,
+        'content': function_response,
+      })
+    
+    # Validate context size and truncate if necessary
+    token_limit = 8000  # Conservative token limit for GPT-4o
+    messages = self.ensure_context_size(messages, token_limit)
+    
+    response = client.chat.completions.create(
+      model=MODEL,
+      messages=messages,
+      functions=self.FUNCTIONS
+    )
     return response
   
-  def get_queue_messages(self, queue_name:str, gpa_code:int= None, collection:str= None, limit:int= None) -> list:
+  def get_queue_messages(self, queue_name:str=None, gpa_code:int=None, collection:str=None, limit:int= None) -> list:
+    print(f"queue_name: {queue_name}, gpa_code: {gpa_code}, collection: {collection}, limit: {limit}")
+    if queue_name is None and gpa_code is not None:
+      queue_name = str(gpa_code)
     return self.rabbit.get_queue_messages(queue_name, gpa_code, collection, limit, vhost=self.vhost)
 
   def get_queue_status(self, queue_name:str=None, without_messages:bool=False) -> pd.DataFrame:
@@ -76,9 +191,6 @@ class Chatbot:
   
   def summarize_queue_messages(self, queue_name:str, limit:int=None) -> pd.DataFrame:
     return self.rabbit.summarize_queue_messages(queue_name, limit, vhost=self.vhost)
-  
-  def resend_to_queue(self, queue_name:str, limit:int=50) -> str:
-    return self.rabbit.resend_to_queue(queue_name, limit, vhost=self.vhost)
   
   def summarize_collections_with_error(self) -> pd.DataFrame:
     mongo = mongo_service.Mongo(database=self.vhost)
@@ -117,7 +229,7 @@ class Chatbot:
 
     return anwser
   
-  def task_analyst(self, task_id: int, query: str, board_name: str='inovacao') -> str:
+  def task_analyst(self, task_id: int, query: str, board_name: str='inovacao', user_id: str = "default") -> str:
     trello = trello_service.Trello()
     task = trello.call_trello_tasks(task_id, board_name)
     task_description = task.get('description', 'not found')
@@ -152,7 +264,6 @@ class Chatbot:
       Now, provide your response.
     """
 
-
     response = client.chat.completions.create(
         model=MODEL,
         messages=[{'role': 'user', 'content': prompt}],
@@ -161,7 +272,7 @@ class Chatbot:
 
     return response.choices[0].message.content
 
-  def task_manager_analyst(self, task_description: str) -> str:
+  def task_manager_analyst(self, task_description: str, user_id: str = "default") -> str:
     prompt = f"""
       You are a software/quality analyst responsible for creating a task in BDD (Behavior-Driven Development) format for the development team. The task description is: **{task_description}**.
 
@@ -184,11 +295,11 @@ class Chatbot:
 
       3. **Doubts/Risks**: Include a section called **Pontos de dúvida** (Points of Doubt) to highlight any risks, uncertainties, or questions that need clarification before implementation.
 
-      4. **Translation**: always translate it into Portuguese.
+      4. Always generate the task in Portuguese.
 
-      Let’s proceed step by step:
+      Let's proceed step by step:
     """
-
+    
     response = client.chat.completions.create(
         model=MODEL,
         messages=[{'role': 'user', 'content': prompt}],
@@ -204,13 +315,13 @@ class Chatbot:
   FUNCTIONS = [
     {
       'name': 'get_queue_messages',
-      'description': 'Get messages from a queue',
+      'description': 'Get messages from a queue, either by queue name or GPA code',
       'parameters': {
         'type': 'object',
         'properties': {
           'queue_name': {
             'type': 'string',
-            'description': 'The name of the queue to get messages from, e.g. "sync_mongo_to_postgres"',
+            'description': 'The name of the queue to get messages from, e.g. "sync_mongo_to_postgres" or "8504"',
             'default': None,
           },
           'gpa_code': {
@@ -332,7 +443,7 @@ class Chatbot:
         'properties': {
           'query': {
             'type': 'string',
-            'description': 'The user`s question about the task, excluding task ID and board name. Example: "quais os comentários da tarefa?" instead of "quais os comentários da tarefa 2256 do time inovacao?".'
+            'description': 'The user`s question about the task, excluding task ID and board name. Example: "quais os comentários da tarefa?" instead of "quais os comentários da tarefa 2256 do time inovacao?" or "resuma a tarefa 2256 do time inovacao.".'
           },
           'board_name': {
             'type': 'string',
@@ -347,18 +458,18 @@ class Chatbot:
       'required': ['task_id', 'query'],
       },
     },
-    {
-      'name': 'task_manager_analyst',
-      'description': 'Create tasks for developers, analysing the request and creating a task in BDD format',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'task_description': {
-            'type': 'string',
-            'description': 'The description of the task to be created, e.g. "describe a task to create a new user in the system"',
-            'default': 'describe a task to create a new user in the system',
-          },
-        }
-      },
-    },        
+    # {
+    #   'name': 'task_manager_analyst',
+    #   'description': 'Create tasks for developers, analysing the request and creating a task in BDD format',
+    #   'parameters': {
+    #     'type': 'object',
+    #     'properties': {
+    #       'task_description': {
+    #         'type': 'string',
+    #         'description': 'The description of the task to be created, e.g. "describe a task to create a new user in the system"',
+    #         'default': 'describe a task to create a new user in the system',
+    #       },
+    #     }
+    #   },
+    # },        
   ]

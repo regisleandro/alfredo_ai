@@ -3,7 +3,8 @@ from fastapi import (
     Body,
     Depends,
     HTTPException,
-    status
+    status,
+    Request
 )
 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -64,24 +65,54 @@ class ChatRequest(BaseModel):
   query: str
 
 @app.post('/chat', dependencies=[Depends(verify_token)])
-async def chat(chat_request: ChatRequest = Body(...)):
-  vhost = 'aqila'
-  log.info(f"Chatting with Alfredo: {chat_request.query}")
-  response = app.state.chatbot.chat(chat_request.query, vhost)
+async def chat(request: Request):
+    data = await request.json()
+    query = data.get("query")
+    vhost = data.get("vhost", "default")
+    user_id = data.get("user_id", "default")  # Get user_id from request, default if not provided
+    
+    chatbot = Chatbot()
+    response = chatbot.chat(query=query, vhost=vhost, user_id=user_id)
+    
+    return {"response": response}
 
-  return translate_response(response)
+@app.post("/task_manager_analyst")
+async def task_manager_analyst(request: Request):
+    data = await request.json()
+    task_description = data.get("task_description")
+    user_id = data.get("user_id", "default")  # Get user_id from request
+    
+    chatbot = Chatbot()
+    response = chatbot.task_manager_analyst(task_description=task_description, user_id=user_id)
+    
+    return {"response": response}
+
+@app.post("/task_analyst")
+async def task_analyst(request: Request):
+    data = await request.json()
+    task_id = data.get("task_id")
+    query = data.get("query")
+    board_name = data.get("board_name", "inovacao")
+    user_id = data.get("user_id", "default")  # Get user_id from request
+    
+    chatbot = Chatbot()
+    # Update task_analyst method in chatbot.py to accept user_id
+    response = chatbot.task_analyst(task_id=task_id, query=query, board_name=board_name)
+    
+    return {"response": response}
 
 def translate_response(response):
   if isinstance(response, list):
     return {
       "text": f"```\n{json.dumps(response, indent=2)}\n```"
     }
+  
   if isinstance(response, pd.DataFrame):
     return dataframe_to_markdown_list(response)
-  else:
-    return {
-      "text": response
-    }
+
+  return {
+    "text": response
+  }
 
 def dataframe_to_markdown_list(df):
   markdown_list = ""
