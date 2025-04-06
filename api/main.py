@@ -1,15 +1,20 @@
+import base64
 from fastapi import (
     FastAPI,
     Body,
     Depends,
     HTTPException,
     status,
-    Request
+    Request,
+    File,
+    UploadFile,
+    Form
 )
 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+from typing import Optional
 
 import sys
 sys.path.append('../')
@@ -66,39 +71,85 @@ class ChatRequest(BaseModel):
 
 @app.post('/chat', dependencies=[Depends(verify_token)])
 async def chat(request: Request):
-    data = await request.json()
-    query = data.get("query")
-    user_id = data.get("user_id", "default")  
-
+  try:
+    # Check if the request is multipart form data or JSON
+    content_type = request.headers.get('content-type', '')
+    print(f"content_type: {content_type}")
+    if 'multipart/form-data' in content_type:
+      # Handle form data (traditional file upload)
+      form_data = await request.form()
+      query = form_data.get('query')
+      user_id = form_data.get('user_id', 'default')
+      file = form_data.get('file')
+      
+      file_content = None
+      file_name = None
+      
+      if file:
+        file_content = await file.read()
+        file_name = file.filename
+    else:
+      # Handle JSON data (Google Chat Apps file blob)
+      data = await request.json()
+      query = data.get('query')
+      user_id = data.get('user_id', 'default')
+      
+      file_content = None
+      file_name = None
+      
+      # Extract file blob from Google Chat payload
+      if 'file' in data:
+        file_data = data.get('file')
+        if file_data:
+          # Base64 decode if the content is encoded
+          if 'content' in file_data and file_data['content']:
+            file_content = base64.b64decode(file_data['content']) if isinstance(file_data['content'], str) else file_data['content']
+          # Get filename if available
+          file_name = file_data.get('name', 'uploaded_file')
+    
     chatbot = app.state.chatbot
-    response = chatbot.chat(query=query, vhost='aqila', user_id=user_id)
+    files = None
+    print(f"file_name: {file_name}")
+    if file_content and file_name:
+      files = [{'content': file_content, 'name': file_name}]
+    
+    response = chatbot.chat(
+        query=query, 
+        vhost='aqila', 
+        user_id=user_id,
+        files=files
+    )
     
     return translate_response(response)
+  except Exception as e:
+    print(f"Error in chat_with_file: {e}")
+    log.error(f"Error in chat_with_file: {str(e)}")
+    raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 @app.post("/task_manager_analyst")
 async def task_manager_analyst(request: Request):
-    data = await request.json()
-    task_description = data.get("task_description")
-    user_id = data.get("user_id", "default") 
-    
-    chatbot = app.state.chatbot
-    response = chatbot.task_manager_analyst(task_description=task_description, user_id=user_id)
-    
-    return {"response": response}
+  data = await request.json()
+  task_description = data.get("task_description")
+  user_id = data.get("user_id", "default") 
+  
+  chatbot = app.state.chatbot
+  response = chatbot.task_manager_analyst(task_description=task_description, user_id=user_id)
+  
+  return {"response": response}
 
 @app.post("/task_analyst")
 async def task_analyst(request: Request):
-    data = await request.json()
-    task_id = data.get("task_id")
-    query = data.get("query")
-    board_name = data.get("board_name", "inovacao")
-    user_id = data.get("user_id", "default") 
-    
-    chatbot = app.state.chatbot
-    # Update task_analyst method in chatbot.py to accept user_id
-    response = chatbot.task_analyst(task_id=task_id, query=query, board_name=board_name)
-    
-    return {"response": response}
+  data = await request.json()
+  task_id = data.get("task_id")
+  query = data.get("query")
+  board_name = data.get("board_name", "inovacao")
+  user_id = data.get("user_id", "default") 
+  
+  chatbot = app.state.chatbot
+  # Update task_analyst method in chatbot.py to accept user_id
+  response = chatbot.task_analyst(task_id=task_id, query=query, board_name=board_name)
+  
+  return {"response": response}
 
 def translate_response(response):
   if isinstance(response, list):

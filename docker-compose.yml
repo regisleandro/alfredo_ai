@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  alfredo-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: alfredo-ai
+    ports:
+      - "8000:8000"  # FastAPI
+      - "8501:8501"  # Streamlit
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ || curl -f http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - alfredo-network
+
+networks:
+  alfredo-network:
+    driver: bridge 
