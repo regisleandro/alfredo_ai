@@ -73,7 +73,7 @@ async def chat(request: Request):
     chatbot = app.state.chatbot
     response = chatbot.chat(query=query, vhost='aqila', user_id=user_id)
     
-    return {"response": response}
+    return translate_response(response)
 
 @app.post("/task_manager_analyst")
 async def task_manager_analyst(request: Request):
