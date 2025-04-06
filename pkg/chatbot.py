@@ -128,10 +128,45 @@ class Chatbot:
     for file in files:
       print(f"file: {file.get('name')}")
       filename = file.get('name')
-      content_type = mimetypes.guess_type(filename)[0]
+      content = file.get('content')
+      
+      # Try to detect content type from base64 content
+      content_type = None
+      if isinstance(content, str) and content.startswith('data:'):
+        # Handle data URL format
+        content_type = content.split(';')[0].split(':')[1]
+      elif isinstance(content, (str, bytes)):
+        # Try to detect from content
+        if isinstance(content, str):
+          try:
+            content = base64.b64decode(content)
+          except:
+            pass
+        
+        if isinstance(content, bytes):
+          # Check for common file signatures
+          if content.startswith(b'\x89PNG\r\n\x1a\n'):
+            content_type = 'image/png'
+          elif content.startswith(b'\xff\xd8\xff'):
+            content_type = 'image/jpeg'
+          elif content.startswith(b'%PDF-'):
+            content_type = 'application/pdf'
+          elif content.startswith(b'\x50\x4B\x03\x04'):  # ZIP file signature
+            content_type = 'application/zip'
+          elif content.startswith(b'\x25\x50\x44\x46'):  # PDF alternative signature
+            content_type = 'application/pdf'
+      
+      # Fallback to filename-based detection
+      if not content_type:
+        content_type = mimetypes.guess_type(filename)[0]
       
       with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-        temp_file.write(file.get('content'))
+        if isinstance(content, str):
+          try:
+            content = base64.b64decode(content)
+          except:
+            content = content.encode('utf-8')
+        temp_file.write(content)
         file_path = temp_file.name
       
       try:
@@ -139,12 +174,12 @@ class Chatbot:
           text = self.extract_text_from_pdf(file_path)
           results.append(f"=== PDF Content from {filename} ===\n{text}\n")
         
-        elif content_type.startswith('image/'):
+        elif content_type and content_type.startswith('image/'):
           image_content = self.prepare_image_for_vision_api(file_path)
           image_contents.append({
             'type': 'image_url',
             'image_url': {
-              'url': f"data:image/{content_type.split('/')[1]};base64,{image_content}"
+              'url': f"data:{content_type};base64,{base64.b64encode(content).decode('utf-8')}"
             },
             'filename': filename
           })
@@ -154,7 +189,7 @@ class Chatbot:
           results.append(f"=== CSV Content from {filename} ===\n{csv_data}\n")
         
         else:
-          results.append(f"Unsupported file type for {filename}: {content_type}")
+          results.append(f"Unsupported file type for {filename}: {content_type or 'unknown'}")
       
       finally:
         os.unlink(file_path)

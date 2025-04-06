@@ -74,7 +74,7 @@ async def chat(request: Request):
   try:
     # Check content type
     content_type = request.headers.get('content-type', '')
-    log.info(f"content_type: {content_type}")
+    print(f"content_type: {content_type}")
     
     # Handle different content types
     if 'multipart/form-data' in content_type:
@@ -141,16 +141,16 @@ async def chat(request: Request):
     
     chatbot = app.state.chatbot
     files = None
+
     if file_content and file_name:
       files = [{'content': file_content, 'name': file_name}]
-    
     response = chatbot.chat(
       query=query,
       vhost='aqila',
       user_id=user_id,
       files=files
     )
-    
+
     return translate_response(response)
   except Exception as e:
     log.error(f"Error in chat: {str(e)}")
