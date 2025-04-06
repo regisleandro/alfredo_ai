@@ -72,11 +72,12 @@ class ChatRequest(BaseModel):
 @app.post('/chat', dependencies=[Depends(verify_token)])
 async def chat(request: Request):
   try:
-    # Check if the request is multipart form data or JSON
+    # Check content type
     content_type = request.headers.get('content-type', '')
-    print(f"content_type: {content_type}")
+    log.info(f"content_type: {content_type}")
+    
+    # Handle different content types
     if 'multipart/form-data' in content_type:
-      # Handle form data (traditional file upload)
       form_data = await request.form()
       query = form_data.get('query')
       user_id = form_data.get('user_id', 'default')
@@ -89,42 +90,71 @@ async def chat(request: Request):
         file_content = await file.read()
         file_name = file.filename
     else:
-      # Handle JSON data (Google Chat Apps file blob)
-      data = await request.json()
-      query = data.get('query')
-      user_id = data.get('user_id', 'default')
-      
-      file_content = None
-      file_name = None
-      
-      # Extract file blob from Google Chat payload
-      if 'file' in data:
-        file_data = data.get('file')
-        if file_data:
-          # Base64 decode if the content is encoded
-          if 'content' in file_data and file_data['content']:
-            file_content = base64.b64decode(file_data['content']) if isinstance(file_data['content'], str) else file_data['content']
-          # Get filename if available
-          file_name = file_data.get('name', 'uploaded_file')
+      try:
+        # Try to parse JSON first
+        data = await request.json()
+        query = data.get('query')
+        user_id = data.get('user_id', 'default')
+        
+        file_content = None
+        file_name = None
+        
+        if 'file' in data:
+          file_data = data.get('file')
+          if file_data:
+            if 'content' in file_data and file_data['content']:
+              try:
+                file_content = base64.b64decode(file_data['content']) if isinstance(file_data['content'], str) else file_data['content']
+              except Exception as e:
+                log.error(f"Error decoding base64 content: {e}")
+                file_content = file_data['content']
+            file_name = file_data.get('name', 'uploaded_file')
+      except json.JSONDecodeError:
+        # If JSON parsing fails, try to get raw body
+        try:
+          body = await request.body()
+          if body:
+            # Try to decode with different encodings
+            try:
+              body_str = body.decode('utf-8')
+            except UnicodeDecodeError:
+              try:
+                body_str = body.decode('latin-1')
+              except:
+                body_str = body.decode('utf-8', errors='replace')
+            
+            # Try to parse as JSON again
+            try:
+              data = json.loads(body_str)
+              query = data.get('query')
+              user_id = data.get('user_id', 'default')
+            except:
+              # If still not JSON, treat as raw query
+              query = body_str
+              user_id = 'default'
+        except Exception as e:
+          log.error(f"Error processing request body: {e}")
+          raise HTTPException(status_code=400, detail="Invalid request format")
+    
+    if not query:
+      raise HTTPException(status_code=400, detail="Query parameter is required")
     
     chatbot = app.state.chatbot
     files = None
-    print(f"file_name: {file_name}")
     if file_content and file_name:
       files = [{'content': file_content, 'name': file_name}]
     
     response = chatbot.chat(
-        query=query, 
-        vhost='aqila', 
-        user_id=user_id,
-        files=files
+      query=query,
+      vhost='aqila',
+      user_id=user_id,
+      files=files
     )
     
     return translate_response(response)
   except Exception as e:
-    print(f"Error in chat_with_file: {e}")
-    log.error(f"Error in chat_with_file: {str(e)}")
-    raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+    log.error(f"Error in chat: {str(e)}")
+    raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 @app.post("/task_manager_analyst")
 async def task_manager_analyst(request: Request):
