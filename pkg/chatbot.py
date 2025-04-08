@@ -155,10 +155,21 @@ class Chatbot:
             content_type = 'application/zip'
           elif content.startswith(b'\x25\x50\x44\x46'):  # PDF alternative signature
             content_type = 'application/pdf'
+          elif content.startswith(b'RIFF') and content[8:12] == b'WEBP':
+            content_type = 'image/webp'
+          elif content.startswith(b'GIF87a') or content.startswith(b'GIF89a'):
+            content_type = 'image/gif'
+          elif content.startswith(b'BM'):  # BMP file signature
+            content_type = 'image/bmp'
+          elif content.startswith(b'II*\x00') or content.startswith(b'MM\x00*'):  # TIFF file signature
+            content_type = 'image/tiff'
       
       # Fallback to filename-based detection
       if not content_type:
         content_type = mimetypes.guess_type(filename)[0]
+      # Additional fallback for image files
+      if not content_type and filename.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff')):
+        content_type = f'image/{filename.split(".")[-1].lower()}'
       
       with tempfile.NamedTemporaryFile(delete=False) as temp_file:
         if isinstance(content, str):
@@ -175,14 +186,34 @@ class Chatbot:
           results.append(f"=== PDF Content from {filename} ===\n{text}\n")
         
         elif content_type and content_type.startswith('image/'):
-          image_content = self.prepare_image_for_vision_api(file_path)
-          image_contents.append({
-            'type': 'image_url',
-            'image_url': {
-              'url': f"data:{content_type};base64,{base64.b64encode(content).decode('utf-8')}"
-            },
-            'filename': filename
-          })
+          try:
+            # Try to open the image to verify it's valid
+            with Image.open(file_path) as img:
+              # Convert to RGB if necessary
+              if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+                img = img.convert('RGB')
+              
+              # Save the processed image
+              processed_path = f"{file_path}_processed.jpg"
+              img.save(processed_path, 'JPEG', quality=95)
+              
+              # Read the processed image
+              with open(processed_path, 'rb') as img_file:
+                processed_content = img_file.read()
+              
+              image_contents.append({
+                'type': 'image_url',
+                'image_url': {
+                  'url': f"data:image/jpeg;base64,{base64.b64encode(processed_content).decode('utf-8')}"
+                },
+                'filename': filename
+              })
+              
+              # Clean up the processed image
+              os.unlink(processed_path)
+          except Exception as e:
+            print(f"Error processing image {filename}: {str(e)}")
+            results.append(f"Error processing image {filename}: {str(e)}")
         
         elif content_type == 'text/csv':
           csv_data = self.extract_data_from_csv(file_path)
