@@ -90,7 +90,7 @@ class Chatbot:
         })
         
         function_response = getattr(self, function_name)(**arguments)
-        
+
         chat_history.append({
           'role': 'function',
           'name': function_name,
@@ -425,36 +425,23 @@ class Chatbot:
 
     return anwser
   
-  def task_analyst(self, task_id: int, query: str, board_name: str='inovacao', user_id: str = "default") -> str:
+  def task_helper(self, query: str) -> str:
     trello = trello_service.Trello()
-    task = trello.call_trello_tasks(task_id, board_name)
-    task_description = task.get('description', 'not found')
-    comments = ""
-    for comment in task.get('comments', []):
-      user = comment.get('user', '')
-      date = comment.get('comment_date')
-      text = comment.get('comment', '')
-      comments += f"**comment** {text} by member **{user}** in **{date}** |"
-
+    cards = trello.search(query)
     prompt = f"""
-      You are an experienced tech leader assisting a development team with a specific task.  
+      You are an experienced tech leader assisting a development team to search and get information about tasks in Trello.  
       Your goal is to provide **clear, objective, and well-founded answers** based strictly on the provided context.  
+
+      ### Instructions:  
+      You will receive a JSON with multiple tasks. First, create a list of descriptions and display only that list with the task id. 
+      Then, ask which task you would like to discuss. If I send a number or description, respond based on that information.
 
       ---  
       ### Context:  
-      Name: {task.get('name', 'Not available')}  
-      Description: {task_description}  
-      Comments: {comments}  
-      ---  
-
-      ### Question:  
-      {query}  
+      {cards}
       ---  
 
       ### Instructions:  
-      - **Use all sections of the provided context**, including the Comments, to formulate a precise answer.  
-      - **Do not omit insights from the Task Comments**; incorporate them naturally into your response.  
-      - **If the information is insufficient, ask for clarification concisely.**  
       - **Always provide the answer in Portuguese.**  
 
       Now, provide your response.
@@ -463,43 +450,7 @@ class Chatbot:
     response = self.client.chat.completions.create(
         model=self.MODEL,
         messages=[{'role': 'user', 'content': prompt}],
-        max_tokens=500
-    )
-
-    return response.choices[0].message.content
-
-  def task_manager_analyst(self, task_description: str, user_id: str = "default") -> str:
-    prompt = f"""
-      You are a software/quality analyst responsible for creating a task in BDD (Behavior-Driven Development) format for the development team. The task description is: **{task_description}**.
-
-      Your goal is to write a clear and structured task in BDD format, following these guidelines:
-
-      1. **Task Structure**: Use the provided markdown format to structure the task:
-        - **Feature**: [Feature Name]
-        - **As a** [Role/User]  
-        - **I want** [Functionality]  
-        - **So that** [Benefit/Value]
-        - **Scenario**: [Scenario Name]  
-          - **Given** [Initial Context]  
-          - **When** [Event/Action]  
-          - **Then** [Expected Outcome]
-
-      2. **Scenarios**: Always include three scenarios:
-        - One for the **success case** (when everything works as expected).
-        - One for the **failure case** (when something goes wrong or an error occurs).
-        - One for the **edge case** (an unusual or extreme situation).
-
-      3. **Doubts/Risks**: Include a section called **Pontos de dúvida** (Points of Doubt) to highlight any risks, uncertainties, or questions that need clarification before implementation.
-
-      4. Always generate the task in Portuguese.
-
-      Let's proceed step by step:
-    """
-    
-    response = self.client.chat.completions.create(
-        model=self.MODEL,
-        messages=[{'role': 'user', 'content': prompt}],
-        max_tokens=500
+        max_tokens=8000
     )
 
     return response.choices[0].message.content
@@ -633,26 +584,17 @@ class Chatbot:
       }
     },
     {
-      'name': 'task_analyst',
-      'description': 'Extracts the task ID, board name, and user`s query about the task from a given text.',
+      'name': 'task_helper',
+      'description': 'A query search for a task in Trello, always will return a list of tasks (5) - extract the query from the string eg. "encontre informacoes sobre a tarefa offline-first the query will be "offline-first"',
       'parameters': {
         'type': 'object',
         'properties': {
           'query': {
             'type': 'string',
-            'description': 'The user`s question about the task, excluding task ID and board name. Example: "quais os comentários da tarefa?" instead of "quais os comentários da tarefa 2256 do time inovacao?" or "resuma a tarefa 2256 do time inovacao.".'
-          },
-          'board_name': {
-            'type': 'string',
-            'description': "The development team or board name to get the task information, e.g. 'inovacao'",
-            'default': 'inovacao',
-          },
-          'task_id': {
-            'type': 'integer',
-            'description': 'The numeric ID of the task, extracted from the input text. Example: 2256 if the question is "quais os comentários da tarefa 2256 do time inovacao?".'
-          },          
+            'description': 'The query to search for a task in Trello'
+          },     
         },
-      'required': ['task_id', 'query'],
+        'required': ['query'],
       },
     },
     {
