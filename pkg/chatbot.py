@@ -586,7 +586,7 @@ class Chatbot:
     },
     {
       'name': 'task_helper',
-      'description': 'Extract the additional question and the task search query from a natural language input about a Trello task (use as the aditional_question any part of the text that is not the task_query);',
+      'description': 'A query search for a task in Trello, always will return a list of tasks (5) - extract the query from the string eg. "encontre informacoes sobre a tarefa offline-first the query will be "offline-first"',
       'parameters': {
         'type': 'object',
         'properties': {
