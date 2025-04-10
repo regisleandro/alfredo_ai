@@ -30,6 +30,9 @@ from pkg.chatbot import Chatbot
 import json
 import pandas as pd
 
+# Import the response translator
+from api.formatters.response_translator import translate_response
+
 log = logging.getLogger(__name__)
 
 app = FastAPI()
@@ -165,7 +168,7 @@ async def task_manager_analyst(request: Request):
   chatbot = app.state.chatbot
   response = chatbot.task_manager_analyst(task_description=task_description, user_id=user_id)
   
-  return {"response": response}
+  return translate_response(response)
 
 @app.post("/task_analyst")
 async def task_analyst(request: Request):
@@ -179,72 +182,4 @@ async def task_analyst(request: Request):
   # Update task_analyst method in chatbot.py to accept user_id
   response = chatbot.task_analyst(task_id=task_id, query=query, board_name=board_name)
   
-  return {"response": response}
-
-def translate_response(response):
-  if isinstance(response, list):
-    return {
-      "text": f"```\n{json.dumps(response, indent=2)}\n```"
-    }
-  
-  if isinstance(response, pd.DataFrame):
-    return dataframe_to_markdown_list(response)
-
-  return {
-    "text": response
-  }
-
-def dataframe_to_markdown_list(df):
-  markdown_list = ""
-  for _, row in df.iterrows():
-    list_item = "- " + ", ".join([f"{col}: *{row[col]}*" for col in df.columns]) + "\n"
-    markdown_list += list_item
-  return format_markdown_to_google_chat_card(markdown_list)
-
-def format_markdown_to_google_chat_card(markdown_text):
-  # Substituir caracteres de escape por seus equivalentes reais
-  markdown_text = (
-    markdown_text.replace('\\n', '\n')
-    .replace('\\t', '    ')
-    .replace('\\"', '"')
-  )
-
-  # Dividir o texto em linhas
-  lines = markdown_text.split('\n')
-
-  # Criar widgets para cada linha
-  widgets = []
-  for line in lines:
-    if line.strip():  # Ignorar linhas vazias
-        # Processar formatação básica de markdown
-        # Substituir *texto* por <b>texto</b> para negrito
-        formatted_line = line.replace('*', '<b>', 1)
-        if '*' in formatted_line:
-          formatted_line = formatted_line.replace('*', '</b>', 1)
-          remaining_asterisks = formatted_line.count('*')
-          for i in range(0, remaining_asterisks, 2):
-            if i < remaining_asterisks:
-              formatted_line = formatted_line.replace('*', '<b>', 1)
-            if i + 1 < remaining_asterisks:
-              formatted_line = formatted_line.replace('*', '</b>', 1)
-        
-        widgets.append({
-          "keyValue": {
-            "content": formatted_line,
-            "contentMultiline": True
-          }
-        })
-
-  card = {
-    "cards": [
-      {
-        "sections": [
-          {
-            "widgets": widgets
-          }
-        ]
-      }
-    ]
-  }
-
-  return card
+  return translate_response(response)

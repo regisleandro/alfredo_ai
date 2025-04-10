@@ -425,9 +425,9 @@ class Chatbot:
 
     return anwser
   
-  def task_helper(self, query: str) -> str:
+  def task_helper(self, task_query: str, aditional_question: str = None) -> str:
     trello = trello_service.Trello()
-    cards = trello.search(query)
+    cards = trello.search(task_query)
     prompt = f"""
       You are an experienced tech leader assisting a development team to search and get information about tasks in Trello.  
       Your goal is to provide **clear, objective, and well-founded answers** based strictly on the provided context.  
@@ -435,6 +435,7 @@ class Chatbot:
       ### Instructions:  
       You will receive a JSON with multiple tasks. First, create a list of descriptions and display only that list with the task id. 
       Then, ask which task you would like to discuss. If I send a number or description, respond based on that information.
+      If the context has only one task then you will answer about the task using this {aditional_question} to get more information.
 
       ---  
       ### Context:  
@@ -571,7 +572,7 @@ class Chatbot:
     },
     {
       'name': 'search_documents',
-      'description': 'Search in the Pulpo knowledge base for documents that match the provided search term.',
+      'description': 'Search in the Pulpo knowledge base for documents that match the provided search term. - It will always have the pulpo in the text',
       'parameters': {
         'type': 'object',
         'properties': {
@@ -585,16 +586,20 @@ class Chatbot:
     },
     {
       'name': 'task_helper',
-      'description': 'A query search for a task in Trello, always will return a list of tasks (5) - extract the query from the string eg. "encontre informacoes sobre a tarefa offline-first the query will be "offline-first"',
+      'description': 'Extract the additional question and the task search query from a natural language input about a Trello task (use as the aditional_question any part of the text that is not the task_query);',
       'parameters': {
         'type': 'object',
         'properties': {
-          'query': {
+          'task_query': {
             'type': 'string',
-            'description': 'The query to search for a task in Trello'
-          },     
+            'description': 'The main query used to search for a Trello task'
+          },
+          'aditional_question': {
+            'type': 'string',
+            'description': 'An optional follow-up question about the task'
+          } 
         },
-        'required': ['query'],
+        'required': ['task_query'],
       },
     },
     {
