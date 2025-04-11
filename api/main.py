@@ -29,7 +29,7 @@ from pkg.chatbot import Chatbot
 
 import json
 import pandas as pd
-
+import traceback
 # Import the response translator
 from api.formatters.response_translator import translate_response
 
@@ -77,7 +77,6 @@ async def chat(request: Request):
   try:
     # Check content type
     content_type = request.headers.get('content-type', '')
-    print(f"content_type: {content_type}")
     
     # Handle different content types
     if 'multipart/form-data' in content_type:
@@ -156,6 +155,8 @@ async def chat(request: Request):
 
     return translate_response(response)
   except Exception as e:
+    print(e)
+    print(traceback.format_exc())
     log.error(f"Error in chat: {str(e)}")
     raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 

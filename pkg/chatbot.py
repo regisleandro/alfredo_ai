@@ -18,6 +18,7 @@ from PyPDF2 import PdfReader
 import csv
 import io
 from PIL import Image
+import inspect
 
 class Chatbot:
   def __init__(self):
@@ -44,7 +45,9 @@ class Chatbot:
       
       history_limit_warning = None
       if len(chat_history) >= 10:
-        history_limit_warning = "⚠️ Você atingiu o limite de conversas sobre este tópico. Uma nova conversa está começando. Os dados das interações anteriores não estarão disponíveis."
+        history_limit_warning = """⚠️ Você atingiu o limite de conversas sobre este tópico.
+          Uma nova conversa está começando. Os dados das interações anteriores não estarão disponíveis.
+        """
         # Clear the chat history since we're starting fresh
         chat_history = []
         self.user_chat_histories[user_id] = chat_history
@@ -55,13 +58,7 @@ class Chatbot:
         
         if file_content and isinstance(file_content, str):
           query = f"{query}\n\nContent from file(s):\n{file_content}"
-      
-      chat_history.append({'role': 'user', 'content': query})
-      
-      if len(chat_history) > 10:
-        chat_history = chat_history[-10:]
-        self.user_chat_histories[user_id] = chat_history
-      
+            
       if files and not isinstance(file_content, str):
         initial_response = self.make_vision_request(query, file_content, user_id)
       else:
@@ -72,46 +69,34 @@ class Chatbot:
       print(f"user_id: {user_id} || chat_history: {chat_history}")
       print('--------------------------------')
       print(f"Initial response: {message}")
-
-      if message.content:
-        chat_history.append({'role': 'assistant', 'content': message.content})
       
-      if hasattr(message, 'function_call') and message.function_call:
-        function_name = message.function_call.name
-        arguments = json.loads(message.function_call.arguments)
+      if hasattr(message, 'tool_calls') and message.tool_calls:
+        tool_call = message.tool_calls[0]
+        function_name = tool_call.function.name
+        arguments = json.loads(tool_call.function.arguments)
+        print(f"function_name: {function_name}, arguments: {arguments}")
         
+        # Check if method accepts user_id parameter
+        method = getattr(self, function_name)
+        signature = inspect.signature(method)
+        if 'user_id' in signature.parameters:
+          arguments['user_id'] = user_id
+            
+        function_response = method(**arguments)
         chat_history.append({
-          'role': 'assistant', 
-          'content': None,
-          'function_call': {
-            'name': function_name,
-            'arguments': message.function_call.arguments
-          }
+          'role': 'assistant',
+          'content': function_response
         })
-        
-        function_response = getattr(self, function_name)(**arguments)
 
-        chat_history.append({
-          'role': 'function',
-          'name': function_name,
-          'content': str(function_response)
-        })
-        
-        if len(chat_history) > 10:
-          chat_history = chat_history[-10:]
-          self.user_chat_histories[user_id] = chat_history
-          
-        if history_limit_warning:
-          if isinstance(function_response, str):
-            return history_limit_warning + "\n\n" + function_response
-          else:
-            return function_response
-        
         return function_response
-      
+
+      chat_history.append({'role': 'assistant', 'content': message.content})
+          
       if history_limit_warning:
         return history_limit_warning + "\n\n" + message.content
       
+      self.user_chat_histories[user_id] = chat_history
+
       return message.content
     except Exception as e:
       print(f"Error: {e}")
@@ -289,32 +274,35 @@ class Chatbot:
     return messages
 
   def make_openai_request(self, query: str, user_id: str = "default") -> dict:
-    chat_history = self.user_chat_histories.get(user_id, [])
-    
-    messages = chat_history if chat_history else [{'role': 'user', 'content': query}]
-    
+    print(f"--------:>make_openai_request: {query}")
+    messages = self.user_chat_histories.get(user_id, [])
+    messages.append({'role': 'user', 'content': query})
+        
     token_limit = 8000  # Conservative token limit for GPT-4o
     messages = self.ensure_context_size(messages, token_limit)
     
     response = self.client.chat.completions.create(
       model=self.MODEL,
       messages=messages,
-      functions=self.FUNCTIONS
+      tools=self.FUNCTIONS,
+      tool_choice='auto'
     )
     return response
 
   def make_vision_request(self, query: str, image_contents, user_id: str = "default") -> dict:
     """Make a request to the vision model with image content"""
+    messages = self.user_chat_histories.get(user_id, [])
+    
     content = [{"type": "text", "text": query}]
     
     for img in image_contents:
       content.append(img)
     
-    message = [{"role": "user", "content": content}]
+    messages.append({"role": "user", "content": content})
     
     response = self.client.chat.completions.create(
       model=self.VISION_MODEL,
-      messages=message,
+      messages=messages,
       max_tokens=1000
     )
     return response
@@ -376,7 +364,7 @@ class Chatbot:
     """Analyze and summarize file content"""
     return self.analyze_file(file_content, file_type)
   
-  def get_queue_messages(self, queue_name:str=None, gpa_code:int=None, collection:str=None, limit:int= None) -> list:
+  def get_queue_messages(self, queue_name:str=None, gpa_code:int=None, collection:str=None, limit:int=None) -> list:
     print(f"queue_name: {queue_name}, gpa_code: {gpa_code}, collection: {collection}, limit: {limit}")
     if queue_name is None and gpa_code is not None:
       queue_name = str(gpa_code)
@@ -394,7 +382,7 @@ class Chatbot:
   
   def summarize_pictures_by_status(self, status: str) -> pd.DataFrame:
     mongo = mongo_service.Mongo(database=self.vhost)
-    return mongo.summarize_pictures_by_status(status= status)
+    return mongo.summarize_pictures_by_status(status=status)
   
   def search_pull_requests(self, repo_name:str='', label:str='', status:str='closed') -> list:
     github = github_service.Github()
@@ -425,23 +413,27 @@ class Chatbot:
 
     return anwser
   
-  def task_helper(self, task_query: str, aditional_question: str = None) -> str:
+  def task_helper(self, task_query: str, user_id:str="default") -> str:
     trello = trello_service.Trello()
     cards = trello.search(task_query)
+    chat_history = self.user_chat_histories.get(user_id, [])
+    chat_history.append({
+      'role': 'user',
+      'content': f"### Context:\n{cards}"
+    })
     prompt = f"""
       You are an experienced tech leader assisting a development team to search and get information about tasks in Trello.  
       Your goal is to provide **clear, objective, and well-founded answers** based strictly on the provided context.  
 
       ### Instructions:  
-      You will receive a JSON with multiple tasks. First, create a list of descriptions and display only that list with the task id. 
+      You will receive a JSON with multiple tasks. 
+      If the context has only one task then you will summarize the task and provide the answer.
+      Else, create a list of descriptions and display only that list with the task id. 
       Then, ask which task you would like to discuss. If I send a number or description, respond based on that information.
-      If the context has only one task then you will answer about the task using this {aditional_question} to get more information.
-
       ---  
       ### Context:  
       {cards}
       ---  
-
       ### Instructions:  
       - **Always provide the answer in Portuguese.**  
 
@@ -454,6 +446,8 @@ class Chatbot:
         max_tokens=8000
     )
 
+    self.user_chat_histories[user_id] = chat_history
+  
     return response.choices[0].message.content
   
   def strip_content(self, content: str) -> str:
@@ -463,162 +457,185 @@ class Chatbot:
   # Update FUNCTIONS list to include the new file-related function
   FUNCTIONS = [
     {
-      'name': 'get_queue_messages',
-      'description': 'Get messages from a queue, either by queue name or GPA code',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'queue_name': {
-            'type': 'string',
-            'description': 'The name of the queue to get messages from, e.g. "sync_mongo_to_postgres" or "8504"',
-            'default': None,
-          },
-          'gpa_code': {
-            'type': 'integer',
-            'description': 'GPA or client code to filter the messages',
-            'default': None,
-          },
-          'collection': {
-            'type': 'string',
-            'description': 'the collection or model to filter the messages',
-            'default': None,
-          },          
-          'limit': {
-            'type': 'integer',
-            'description': 'The number of messages to get from the queue, if not provided will get all messages',
-            'default': None,
-          },
-        }
-      },
-    },
-    {
-      'name': 'get_queue_status',
-      'description': 'Get the status of a queue',
-      'parameters': {
+      'type': 'function',
+      'function': {
+        'name': 'get_queue_messages',
+        'description': 'Get messages from a queue, either by queue name or GPA code',
+        'parameters': {
           'type': 'object',
           'properties': {
             'queue_name': {
               'type': 'string',
-              'description': 'The name of the queue to get the status of, e.g. "sync_mongo_to_postgres"',
+              'description': 'The name of the queue to get messages from, e.g. "sync_mongo_to_postgres" or "8504"',
+              'default': None,
             },
-            'without_messages': {
-              'type': 'boolean',
-              'description': 'Whether to include messages with count > 0 in the response',
-              'default': False,
+            'gpa_code': {
+              'type': 'integer',
+              'description': 'GPA or client code to filter the messages',
+              'default': None,
+            },
+            'collection': {
+              'type': 'string',
+              'description': 'the collection or model to filter the messages',
+              'default': None,
+            },          
+            'limit': {
+              'type': 'integer',
+              'description': 'The number of messages to get from the queue, if not provided will get all messages',
+              'default': None,
             },
           }
-        },
-    },
-    {
-      'name': 'summarize_queue_messages',
-      'description': 'Summarize or get statistics from  messages in a queue',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'queue_name': {
-            'type': 'string',
-            'description': 'The name of the queue to summarize the messages from, e.g. "sync_mongo_to_postgres"',
-            'default': None,
-          },
-          'limit': {
-            'type': 'integer',
-            'description': 'The maximum number of messages to return',
-            'default': 50,
-          },
         }
-      },
-    },
-    {
-      'name': 'summarize_collections_with_error',
-      'description': 'Summarize or get the status of the synchronization errors in Mongo',
-    },
-    {
-      'name': 'summarize_pictures_by_status',
-      'description': 'Summarize or get status for pictures in Mongo by status',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'status': {
-            'type': 'string',
-            'description': 'The status to filter need to be "pending", "done" or "error"',
-            'default': 'pending',
-          },
-        }
-      },      
-    },
-    {
-      'name': 'search_pull_requests',
-      'description': 'List the commits from pull requests in a repository',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'status': {
-            'type': 'string',
-            'description': 'The status to filter need to be "closed", "all" or "open"',
-            'default': 'closed',
-          },
-          'repo_name': {
-            'type': 'string',
-            'description': 'The name of the repository to search for pull requests, e.g. "alfredo-ai"',
-            'default': '',
-          },
-          'label': {
-            'type': 'string',
-            'description': 'The label to filter the pull requests, e.g. "bug" or "enhancement"',
-            'default': '',
-          },
-        }
-      },      
-    },
-    {
-      'name': 'search_documents',
-      'description': 'Search in the Pulpo knowledge base for documents that match the provided search term. - It will always have the pulpo in the text',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'search_term': {
-            'type': 'string',
-            'description': "The term or phrase to search for in the Pulpo knowledge base, e.g., 'how to create a new user in Pulpo'."
-          }
-        },
-        'required': ['search_term']
       }
     },
     {
-      'name': 'task_helper',
-      'description': 'A query search for a task in Trello, always will return a list of tasks (5) - extract the query from the string eg. "encontre informacoes sobre a tarefa offline-first the query will be "offline-first"',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'task_query': {
-            'type': 'string',
-            'description': 'The main query used to search for a Trello task'
+      'type': 'function',
+      'function': {
+        'name': 'get_queue_status',
+        'description': 'Get the status of a queue',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+              'queue_name': {
+                'type': 'string',
+                'description': 'The name of the queue to get the status of, e.g. "sync_mongo_to_postgres"',
+              },
+              'without_messages': {
+                'type': 'boolean',
+                'description': 'Whether to include messages with count > 0 in the response',
+                'default': False,
+              },
+            }
           },
-          'aditional_question': {
-            'type': 'string',
-            'description': 'An optional follow-up question about the task'
-          } 
-        },
-        'required': ['task_query'],
-      },
+      }
     },
     {
-      'name': 'summarize_file',
-      'description': 'Analyze and summarize content from a file (PDF, CSV, etc.)',
-      'parameters': {
-        'type': 'object',
-        'properties': {
-          'file_content': {
-            'type': 'string',
-            'description': 'The extracted content from the file to be analyzed'
-          },
-          'file_type': {
-            'type': 'string',
-            'description': 'The type of file (PDF, CSV, image)',
-            'enum': ['PDF', 'CSV', 'image', 'other']
+      'type': 'function',
+      'function': {
+        'name': 'summarize_queue_messages',
+        'description': 'Summarize or get statistics from  messages in a queue',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'queue_name': {
+              'type': 'string',
+              'description': 'The name of the queue to summarize the messages from, e.g. "sync_mongo_to_postgres"',
+              'default': None,
+            },
+            'limit': {
+              'type': 'integer',
+              'description': 'The maximum number of messages to return',
+              'default': 50,
+            },
           }
-        },
-        'required': ['file_content', 'file_type']
+        }
+      }
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'summarize_collections_with_error',
+        'description': 'Summarize or get the status of the synchronization errors in Mongo',
+      }
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'summarize_pictures_by_status',
+        'description': 'Summarize or get status for pictures in Mongo by status',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'status': {
+              'type': 'string',
+              'description': 'The status to filter need to be "pending", "done" or "error"',
+              'default': 'pending',
+            },
+          }
+        }
+      }
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'search_pull_requests',
+        'description': 'List the commits from pull requests in a repository',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'status': {
+              'type': 'string',
+              'description': 'The status to filter need to be "closed", "all" or "open"',
+              'default': 'closed',
+            },
+            'repo_name': {
+              'type': 'string',
+              'description': 'The name of the repository to search for pull requests, e.g. "alfredo-ai"',
+              'default': '',
+            },
+            'label': {
+              'type': 'string',
+              'description': 'The label to filter the pull requests, e.g. "bug" or "enhancement"',
+              'default': '',
+            },
+          }
+        }
+      }
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'search_documents',
+        'description': 'Search in the Pulpo knowledge base for documents that match the provided search term. - It will always have the pulpo in the text',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'search_term': {
+              'type': 'string',
+              'description': "The term or phrase to search for in the Pulpo knowledge base, e.g., 'how to create a new user in Pulpo'."
+            }
+          },
+          'required': ['search_term']
+        }
+      }
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'task_helper',
+        'description': 'A query search for a task in Trello, always will return a list of tasks (5) - extract the query from the string eg. "encontre informacoes sobre a tarefa offline-first the query will be "offline-first"',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'task_query': {
+              'type': 'string',
+              'description': 'The main query used to search for a Trello task'
+            },
+          },
+          'required': ['task_query'],
+        }
+      }
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'summarize_file',
+        'description': 'Analyze and summarize content from a file (PDF, CSV, etc.)',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'file_content': {
+              'type': 'string',
+              'description': 'The extracted content from the file to be analyzed'
+            },
+            'file_type': {
+              'type': 'string',
+              'description': 'The type of file (PDF, CSV, image)',
+              'enum': ['PDF', 'CSV', 'image', 'other']
+            }
+          },
+          'required': ['file_content', 'file_type']
+        }
       }
     }
   ]
