@@ -125,21 +125,18 @@ class Chatbot:
             tool_choice='auto'
         )
         return response
-
+    
     def make_vision_request(self, query: str, image_contents, user_id: str = "default") -> dict:
         """Make a request to the vision model with image content"""
-        messages = self.user_chat_histories.get(user_id, [])
         
         content = [{"type": "text", "text": query}]
         
         for img in image_contents:
             content.append(img)
         
-        messages.append({"role": "user", "content": content})
-        
         response = self.client.chat.completions.create(
             model=self.VISION_MODEL,
-            messages=messages,
+            messages=[{"role": "user", "content": content}],
             max_tokens=1000
         )
         return response
