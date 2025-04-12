@@ -6,7 +6,6 @@ import pandas as pd
 from langchain_openai import OpenAIEmbeddings
 from langchain.vectorstores import MongoDBAtlasVectorSearch
 
-from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts.chat import (
     ChatPromptTemplate,
     HumanMessagePromptTemplate,

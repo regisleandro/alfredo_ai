@@ -15,6 +15,25 @@ def translate_response(response):
     Returns:
         dict: A properly formatted Google Chat message
     """
+    if response is None:
+        return {
+            "cards": [
+                {
+                    "sections": [
+                        {
+                            "widgets": [
+                                {
+                                    "textParagraph": {
+                                        "text": "Nenhum resultado encontrado."
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    
     if isinstance(response, list):
         return format_json_to_google_chat_card(response)
     

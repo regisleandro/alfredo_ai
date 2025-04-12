@@ -2,7 +2,6 @@ import requests
 import base64
 import json
 import pika
-import ssl
 import pandas as pd
 import pkg.constants as constants
 from dotenv import load_dotenv

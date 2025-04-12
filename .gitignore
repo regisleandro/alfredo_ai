@@ -2,4 +2,5 @@
 .env
 pkg/__pycache__/
 api/__pycache__/
+api/formatters/__pycache__/
 alfredo_rocket/node_modules/

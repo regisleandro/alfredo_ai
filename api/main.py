@@ -28,7 +28,6 @@ from pydantic import BaseModel
 from pkg.chatbot import Chatbot
 
 import json
-import pandas as pd
 import traceback
 # Import the response translator
 from api.formatters.response_translator import translate_response
