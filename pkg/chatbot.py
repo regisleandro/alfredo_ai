@@ -262,7 +262,7 @@ class Chatbot:
           ### Instructions:  
           You will receive a JSON with multiple tasks. 
           If the context has only one task then you will summarize the task and provide the answer.
-          Else, create a list of descriptions and display only that list with the task id. 
+          Else, create a list of tasks with the id (the number in the card), name and a link to the task.
           Then, ask which task you would like to discuss. If I send a number or description, respond based on that information.
           ---  
           ### Context:  
