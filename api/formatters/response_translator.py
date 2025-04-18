@@ -1,8 +1,8 @@
 import pandas as pd
 from .google_chat import (
-    format_text_to_google_chat_card,
-    format_json_to_google_chat_card,
-    dataframe_to_google_chat_card
+    format_text_to_google_chat,
+    format_json_to_google_chat,
+    dataframe_to_google_chat
 )
 
 def translate_response(response):
@@ -13,32 +13,19 @@ def translate_response(response):
         response: The response to translate (can be list, DataFrame, or string)
         
     Returns:
-        dict: A properly formatted Google Chat message
+        dict: A Google Chat message with text and formattedText
     """
     if response is None:
         return {
-            "cards": [
-                {
-                    "sections": [
-                        {
-                            "widgets": [
-                                {
-                                    "textParagraph": {
-                                        "text": "Nenhum resultado encontrado."
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
+            "text": "Nenhum resultado encontrado.",
+            "formattedText": "Nenhum resultado encontrado."
         }
     
     if isinstance(response, list):
-        return format_json_to_google_chat_card(response)
+        return format_json_to_google_chat(response)
     
     if isinstance(response, pd.DataFrame):
-        return dataframe_to_google_chat_card(response)
+        return dataframe_to_google_chat(response)
 
     # For text responses
-    return format_text_to_google_chat_card(response) 
+    return format_text_to_google_chat(response) 
