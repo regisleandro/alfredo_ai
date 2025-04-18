@@ -15,7 +15,7 @@ class Trello:
     )
 
   def search(self, query:str):
-    cards = self.client.search(query, partial_match=True, cards_limit=5)
+    cards = self.client.search(query, partial_match=True, models=['cards'], cards_limit=5)
     cards_json = []
     for index, card in enumerate(cards):
       comments = self.get_comments(card)
