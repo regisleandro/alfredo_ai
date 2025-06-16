@@ -73,13 +73,19 @@ class Rabbit:
       limit = int(queue_status['messages_count'].values[0])
     
     print(f"Getting {limit} messages from {queue_name} in {self.vhost} from gpa_code {gpa_code}")
-
-    params = {'count': limit, 'ackmode': 'ack_requeue_true', 'encoding': 'auto'}
-    queue_url = f"{self.get_queue_url(queue_name)}/get"
-    response = requests.post(queue_url, auth=self.auth, json=params)
-
     messages = []
-    if response.status_code == 200:
+
+    # iterate in chunks of 1000
+    for chunk in range(0, limit, 500):
+      print(f"Getting chunk {chunk} of 500 - {limit} messages from {queue_name} in {self.vhost} from gpa_code {gpa_code}")
+      params = {'count': 500, 'ackmode': 'ack_requeue_true', 'encoding': 'auto'}
+      queue_url = f"{self.get_queue_url(queue_name)}/get"
+      response = requests.post(queue_url, auth=self.auth, json=params)
+
+      if response.status_code != 200:
+        print(f"Error: {response.status_code} - {response.text}")
+        return None
+
       messages_data = response.json()
       for message in messages_data:
         message_body = message['payload']
@@ -87,7 +93,6 @@ class Rabbit:
         try:
           payload = json.loads(message_body)['payload']
           message_body = base64.b64decode(payload).decode('utf-8')
-
         except Exception as e:
           print(f"Error decoding message: {e}")
         
@@ -96,19 +101,20 @@ class Rabbit:
             message_body = json.loads(message_body)
           except Exception as e:
             print(f"Error parsing message: {e}")
+
+
         print('message_body', message_body)
         messages.append(message_body)
-      
-      if gpa_code is not None:
-        messages = list(filter(lambda x: int(x.get('config', {}).get('gpa_code')) == int(gpa_code), messages))
-      print(len(messages))
-      if collection is not None:
-        messages = list(filter(lambda x: x.get('config', {}).get('model') == collection, messages))
-      return messages
-    else:
-      print(f"Error: {response.status_code} - {response.text}")
-      return None
     
+    if gpa_code is not None:
+      messages = list(filter(lambda x: int(x.get('config', {}).get('gpa_code')) == int(gpa_code), messages))
+    
+    print(len(messages))
+    if collection is not None:
+      messages = list(filter(lambda x: x.get('config', {}).get('model') == collection, messages))
+    
+    return messages
+
   def resend_to_queue(self, queue_name: str, limit: int, vhost: str = None) -> str: 
     self.vhost = vhost
     destination_queue = queue_name.split('-')[0]
