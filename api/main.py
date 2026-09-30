@@ -152,7 +152,8 @@ async def chat(request: Request):
       files=files
     )
 
-    return translate_response(response)
+    platform = request.query_params.get("platform", "google_chat")
+    return translate_response(response, platform=platform)
   except Exception as e:
     print(e)
     print(traceback.format_exc())
@@ -168,7 +169,8 @@ async def task_manager_analyst(request: Request):
   chatbot = app.state.chatbot
   response = chatbot.task_manager_analyst(task_description=task_description, user_id=user_id)
   
-  return translate_response(response)
+  platform = request.query_params.get("platform", "google_chat")
+  return translate_response(response, platform=platform)
 
 @app.post("/task_analyst")
 async def task_analyst(request: Request):
@@ -182,4 +184,5 @@ async def task_analyst(request: Request):
   # Update task_analyst method in chatbot.py to accept user_id
   response = chatbot.task_analyst(task_id=task_id, query=query, board_name=board_name)
   
-  return translate_response(response)
+  platform = request.query_params.get("platform", "google_chat")
+  return translate_response(response, platform=platform)
